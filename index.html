@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>oOMCMOo DNA Vault</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--cyan:#00f5ff;--purple:#8800ff;--green:#00ff88;--pink:#ff44aa;--amber:#ffcc00;--bg:#020510}
+body{background:#020510;color:#e2e8f0;font-family:'Share Tech Mono',monospace;height:100vh;overflow:hidden;
+background-image:radial-gradient(circle at 50% 50%,rgba(0,128,255,0.05) 0%,transparent 60%)}
+.scanlines{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;
+background:linear-gradient(to bottom,transparent 50%,rgba(0,245,255,0.015) 50%);background-size:100% 4px;opacity:0.5}
+.hud-panel{background:rgba(2,8,20,0.7);backdrop-filter:blur(8px);border:1px solid rgba(0,245,255,0.25);
+box-shadow:0 0 15px rgba(0,245,255,0.08),inset 0 0 20px rgba(0,128,255,0.06);position:relative;overflow:hidden}
+.hud-panel::before{content:'';position:absolute;inset:0;border:1px solid transparent;
+background:linear-gradient(45deg,#00f5ff,#8800ff,#00f5ff) border-box;
+-webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);
+-webkit-mask-composite:destination-out;mask-composite:exclude;opacity:0.25;
+animation:borderGlow 4s linear infinite;pointer-events:none}
+@keyframes borderGlow{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes floatY{0%{transform:translateY(-5px)}100%{transform:translateY(5px)}}
+#app{display:flex;flex-direction:column;height:100vh}
+#topnav{flex-shrink:0;border-bottom:1px solid #1e293b;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:20}
+#brandbar{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;border-bottom:1px solid #0f172a}
+#tabrow{display:flex;overflow-x:auto;scrollbar-width:none}
+#tabrow::-webkit-scrollbar{display:none}
+.tab-btn{padding:7px 14px;border-right:1px solid #1e293b;border-bottom:3px solid transparent;background:none;
+color:#64748b;cursor:pointer;font-family:'Share Tech Mono',monospace;display:flex;flex-direction:column;
+align-items:center;white-space:nowrap;transition:all 0.2s;flex-shrink:0;border-top:none;border-left:none}
+.tab-btn:hover{background:rgba(255,255,255,0.03);color:#e2e8f0}
+.tab-btn.active{background:rgba(255,255,255,0.05);color:#fff}
+.tab-label{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.15em}
+.tab-sub{font-size:8px;letter-spacing:0.15em;opacity:0.55;margin-top:1px}
+#maincontent{flex:1;overflow:auto;position:relative;padding-bottom:52px}
+.tab-panel{display:none;padding:18px;min-height:100%}
+.tab-panel.active{display:block}
+.sdot{width:6px;height:6px;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+.sdot-g{background:#00ff88;box-shadow:0 0 6px #00ff88}
+.sdot-c{background:#00f5ff;box-shadow:0 0 6px #00f5ff}
+.sdot-p{background:#8800ff;box-shadow:0 0 6px #8800ff}
+.sdot-a{background:#ffcc00;box-shadow:0 0 6px #ffcc00}
+.btn{border:none;cursor:pointer;font-family:'Share Tech Mono',monospace;letter-spacing:0.1em;transition:all 0.2s}
+.btn-c{border:1px solid #00f5ff;color:#00f5ff;background:rgba(0,245,255,0.08);padding:9px 14px;font-size:10px}
+.btn-c:hover{background:rgba(0,245,255,0.16);box-shadow:0 0 16px rgba(0,245,255,0.25)}
+.btn-p{border:1px solid #8800ff;color:#aa88ff;background:rgba(136,0,255,0.08);padding:9px 14px;font-size:10px}
+.btn-p:hover{background:rgba(136,0,255,0.18);box-shadow:0 0 16px rgba(136,0,255,0.25)}
+.btn:disabled{opacity:0.35;cursor:not-allowed}
+.btn-mode{border:1px solid #334155;color:#94a3b8;background:none;padding:7px 14px;font-size:10px;
+letter-spacing:0.1em;cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all 0.2s}
+.btn-mode.active,.btn-mode:hover{border-color:#00f5ff;color:#a5f3fc;background:rgba(0,245,255,0.08)}
+.btn-mode.active{box-shadow:0 0 10px rgba(0,245,255,0.2)}
+input,textarea{background:transparent;border:1px solid #334155;color:#e2e8f0;
+font-family:'Share Tech Mono',monospace;font-size:12px;padding:7px 9px;outline:none;
+transition:border-color 0.2s;width:100%}
+input:focus,textarea:focus{border-color:#00f5ff}
+input[type=password]:focus{border-color:#8800ff}
+input[type=range]{border:none;padding:0;accent-color:#00f5ff}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
+@media(max-width:860px){.g2,.g3,.g4{grid-template-columns:1fr}}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:#0a0f1e}
+::-webkit-scrollbar-thumb{background:#1e3a4a}
+.pbar{height:4px;background:#1e293b;border-radius:2px;overflow:hidden}
+.pfill{height:100%;background:linear-gradient(to right,#00f5ff,#8800ff,#ff44aa);transition:width 0.3s}
+.vi{background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:5px;padding:11px;display:flex;flex-direction:column;gap:7px}
+.vs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;text-align:center}
+.vc{background:rgba(0,0,0,0.3);border-radius:3px;padding:5px;font-size:8px}
+.lbl{font-size:8px;letter-spacing:0.15em;color:#475569}
+.msg-ai{background:rgba(0,0,0,0.4);border:1px solid rgba(0,245,255,0.12);border-radius:5px;padding:9px;
+font-size:10px;color:#cbd5e1;max-width:82%;line-height:1.55}
+.msg-user{background:rgba(136,0,255,0.12);border:1px solid rgba(136,0,255,0.25);border-radius:5px;padding:9px;
+font-size:10px;color:#e2e8f0;max-width:82%;line-height:1.55;margin-left:auto}
+.mrow{display:flex;gap:7px;align-items:flex-start}
+.mrow.u{flex-direction:row-reverse}
+.av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.av-ai{background:rgba(0,245,255,0.12);border:1px solid #00f5ff;color:#00f5ff}
+.av-u{background:rgba(136,0,255,0.12);border:1px solid #8800ff;color:#aa88ff}
+.pc{background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:5px;padding:12px;display:flex;flex-direction:column;gap:7px}
+.vbar{height:5px;background:#1e293b;border-radius:2px;overflow:hidden}
+.vfill{height:100%;background:linear-gradient(to right,#00ff88,#00ccff)}
+#winamp{position:fixed;bottom:0;left:0;right:0;z-index:199;height:52px;
+background:linear-gradient(to right,#000810,#00100a,#000820,#000810);
+border-top:1px solid rgba(0,245,255,0.18);box-shadow:0 -4px 20px rgba(0,245,255,0.08);
+display:flex;align-items:center;font-family:'Share Tech Mono',monospace;user-select:none}
+.wbtn{background:none;border:none;cursor:pointer;font-size:14px;width:30px;height:30px;
+display:flex;align-items:center;justify-content:center;color:#00ccff;transition:color 0.15s}
+.wbtn:hover{color:#fff}
+#playlist-panel{display:none;position:fixed;bottom:52px;right:14px;width:290px;z-index:200;
+background:linear-gradient(135deg,#000c1a,#000820);border:1px solid rgba(0,245,255,0.22);
+box-shadow:0 0 28px rgba(0,245,255,0.08)}
+#media-modal{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.93);
+align-items:center;justify-content:center;padding:14px}
+.wallet-opt{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+border:1px solid #334155;border-radius:5px;cursor:pointer;background:none;width:100%;
+font-family:'Share Tech Mono',monospace;transition:all 0.2s;color:#e2e8f0}
+.wallet-opt:hover{border-color:#00f5ff;background:rgba(0,245,255,0.04)}
+.wallet-opt:disabled{opacity:0.45;cursor:not-allowed}
+#vault-container{position:relative;width:100%;height:calc(100vh - 104px)}
+#vault-canvas{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div id="app">
+<div id="topnav">
+  <div id="brandbar">
+    <div>
+      <span style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:0.25em;color:#00f5ff;text-shadow:0 0 10px #00f5ff">oOMCMOo <span style="color:#aa88ff">DNA VAULT</span></span>
+      <span style="font-size:8px;letter-spacing:0.2em;color:#334155;margin-left:10px">oOMCMOo NETWORK &bull; 12-STRAND IMMORTAL SYNTHETIC</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:5px"><span class="sdot sdot-g"></span><span style="font-size:8px;color:#475569;letter-spacing:0.08em">VAULT ONLINE</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><span class="sdot sdot-c"></span><span style="font-size:8px;color:#475569;letter-spacing:0.08em">AES-256-GCM</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><span class="sdot sdot-p"></span><span style="font-size:8px;color:#475569;letter-spacing:0.08em">KYBER-1024</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><span class="sdot sdot-a"></span><span style="font-size:8px;color:#475569;letter-spacing:0.08em">IPFS READY</span></div>
+    </div>
+  </div>
+  <div id="tabrow">
+    <button class="tab-btn active" onclick="switchTab('vault',this,'#00f5ff')"><span class="tab-label" style="color:#00f5ff">3D VAULT</span><span class="tab-sub">ORBITAL VIEW</span></button>
+    <button class="tab-btn" onclick="switchTab('cipher',this,'#00ff88')"><span class="tab-label">DNA CIPHER</span><span class="tab-sub">ENCRYPT/DECRYPT</span></button>
+    <button class="tab-btn" onclick="switchTab('synth',this,'#aa88ff')"><span class="tab-label">SYNTHESIZER</span><span class="tab-sub">FILE VAULT · IPFS</span></button>
+    <button class="tab-btn" onclick="switchTab('analytics',this,'#ffcc00')"><span class="tab-label">DNA ANALYTICS</span><span class="tab-sub">SEQUENCE ANALYSIS</span></button>
+    <button class="tab-btn" onclick="switchTab('wallet',this,'#fc7227')"><span class="tab-label">WALLET</span><span class="tab-sub">SOLANA · WEB3</span></button>
+    <button class="tab-btn" onclick="switchTab('dao',this,'#ff44aa')"><span class="tab-label">DAO CONTROL</span><span class="tab-sub">GOVERNANCE</span></button>
+    <button class="tab-btn" onclick="switchTab('ai',this,'#44aaff')"><span class="tab-label">AI CORE</span><span class="tab-sub">ASSISTANT</span></button>
+  </div>
+</div>
+
+<div id="maincontent">
+
+<!-- ═══ 3D VAULT ═══ -->
+<div id="tab-vault" class="tab-panel active" style="padding:0;height:calc(100vh - 104px)">
+  <div id="vault-container">
+    <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:10;text-align:center;pointer-events:none">
+      <h1 style="font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 20px #00f5ff">DNA VAULT</h1>
+      <p style="font-size:9px;letter-spacing:0.3em;color:#aa88ff;margin-top:3px">IMMORTAL SYNTHETIC DNA — 12 STRANDS</p>
+    </div>
+    <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;text-align:center;pointer-events:none">
+      <p style="font-size:8px;letter-spacing:0.15em;color:#00f5ff;opacity:0.55">ENCRYPTED WITH REAL-TIME POST-QUANTUM CRYPTOGRAPHY</p>
+      <p style="font-size:7px;letter-spacing:0.1em;color:#60a5fa;opacity:0.4;margin-top:2px">DRAG TO ROTATE — SCROLL TO ZOOM — AUTO-ORBIT ENABLED</p>
+    </div>
+    <canvas id="vault-canvas"></canvas>
+    <div style="position:absolute;bottom:60px;right:14px;z-index:10;display:flex;flex-direction:column;gap:6px">
+      <button id="vz-in" style="width:38px;height:38px;border-radius:50%;border:1px solid rgba(0,245,255,0.4);background:rgba(2,8,20,0.7);backdrop-filter:blur(6px);color:#00f5ff;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(0,245,255,0.15)">+</button>
+      <button id="vz-out" style="width:38px;height:38px;border-radius:50%;border:1px solid rgba(0,245,255,0.4);background:rgba(2,8,20,0.7);backdrop-filter:blur(6px);color:#00f5ff;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(0,245,255,0.15)">−</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DNA CIPHER ═══ -->
+<div id="tab-cipher" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">DNA CIPHER</h2>
+    <p style="font-size:9px;letter-spacing:0.2em;color:#aa88ff;margin-top:3px">ENCODE &amp; DECODE MESSAGES TO SYNTHETIC DNA SEQUENCES</p>
+  </div>
+  <div style="display:flex;gap:7px;justify-content:center;margin-bottom:16px">
+    <button class="btn-mode active" id="mode-encrypt" onclick="setCipherMode('encrypt')">ENCRYPT → DNA</button>
+    <button class="btn-mode" id="mode-decrypt" onclick="setCipherMode('decrypt')">DECRYPT FROM DNA</button>
+    <button class="btn-mode" id="mode-raw" onclick="setCipherMode('raw')">RAW ENCODING</button>
+  </div>
+  <div class="g2">
+    <div class="hud-panel" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div id="ci-label" style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:7px">PLAINTEXT INPUT</div>
+      <textarea id="ci-input" rows="7" placeholder="Enter your secret message..." style="resize:vertical"></textarea>
+      <div id="ci-pass-wrap" style="display:flex;flex-direction:column;gap:5px">
+        <div class="lbl">PASSPHRASE</div>
+        <input type="password" id="ci-pass" placeholder="Set a passphrase to encrypt...">
+        <div id="ci-pass-warn" style="font-size:8px;color:#f59e0b">Without a passphrase, DNA is raw encoding only (no encryption)</div>
+        <label style="display:flex;align-items:center;gap:7px;margin-top:6px;padding:8px 9px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.25);border-radius:4px;cursor:pointer">
+          <input type="checkbox" id="ci-pqc-toggle" checked style="width:14px;height:14px;accent-color:#00ff88;flex-shrink:0">
+          <span style="font-size:9px;color:#00ff88;letter-spacing:0.06em;line-height:1.4">POST-QUANTUM MODE — ML-KEM-1024 + ML-DSA-65 + AES-256-GCM (Zero-Trust Verify)</span>
+        </label>
+        <div style="font-size:7px;color:#334155;line-height:1.5">Real NIST FIPS 203/204 algorithms (CNSA 2.0 suite). First use downloads ~150KB crypto library — needs internet once, then cached. Output is significantly longer than classic mode due to genuine PQC key/signature sizes (~5KB overhead minimum). Uncheck for fast classic AES-256-GCM only, fully offline.</div>
+      </div>
+      <div style="display:flex;gap:7px">
+        <button class="btn btn-c" style="flex:1" id="ci-run" onclick="runCipher()">ENCODE TO DNA SEQUENCE</button>
+        <button class="btn" style="border:1px solid #334155;color:#64748b;background:none;padding:7px 12px;font-size:9px" onclick="clearCipher()">CLEAR</button>
+      </div>
+      <div id="ci-progress-line" style="font-size:8px;color:#00f5ff;text-align:center;min-height:12px;letter-spacing:0.06em"></div>
+      <div id="ci-status" style="font-size:10px;text-align:center;min-height:14px"></div>
+    </div>
+    <div class="hud-panel" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:7px">
+        <span id="co-label" style="font-size:9px;color:#00f5ff;letter-spacing:0.18em">DNA SEQUENCE OUTPUT</span>
+        <button class="btn" style="border:1px solid #334155;color:#94a3b8;background:none;padding:4px 10px;font-size:9px" onclick="copyCO()">COPY</button>
+      </div>
+      <div id="ci-output" style="flex:1;min-height:160px;background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:9px;overflow:auto;font-size:9px;line-height:1.6">
+        <span style="color:#334155;font-size:10px">Output will appear here...</span>
+      </div>
+      <div id="ci-stats" style="display:none;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;text-align:center">
+        <div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:9px;font-weight:700;color:#00ff88">A</div><div id="s-A" style="font-size:8px;color:#64748b"></div></div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:9px;font-weight:700;color:#00ccff">T</div><div id="s-T" style="font-size:8px;color:#64748b"></div></div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:9px;font-weight:700;color:#ffcc00">G</div><div id="s-G" style="font-size:8px;color:#64748b"></div></div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:9px;font-weight:700;color:#ff44aa">C</div><div id="s-C" style="font-size:8px;color:#64748b"></div></div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:8px;color:#64748b">GC%</div><div id="s-GC" style="font-size:8px;color:#f59e0b"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="hud-panel" style="padding:12px;margin-top:14px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:8px;margin-bottom:8px">
+      <div><span style="color:#00ff88;font-weight:700">A (Adenine)</span> = 00 binary</div>
+      <div><span style="color:#00ccff;font-weight:700">T (Thymine)</span> = 01 binary</div>
+      <div><span style="color:#ffcc00;font-weight:700">G (Guanine)</span> = 10 binary</div>
+      <div><span style="color:#ff44aa;font-weight:700">C (Cytosine)</span> = 11 binary</div>
+    </div>
+    <div style="font-size:8px;color:#334155;line-height:1.6">Classic mode: PBKDF2 (600,000 iter, SHA-256) + AES-256-GCM. Post-quantum mode adds ML-KEM-1024 (FIPS 203) key encapsulation + ML-DSA-65 (FIPS 204) signature, verified before any decryption is attempted. Each byte = 4 DNA bases (2 bits/base).</div>
+  </div>
+</div>
+
+<!-- ═══ SYNTHESIZER ═══ -->
+<div id="tab-synth" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">MOLECULAR SYNTHESIZER</h2>
+    <p style="font-size:9px;letter-spacing:0.18em;color:#aa88ff;margin-top:3px">CONVERT ANY FILE TO SYNTHETIC DNA — ENCRYPT &amp; VAULT — IPFS STORAGE</p>
+  </div>
+  <div class="g2">
+    <div class="hud-panel" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:7px">
+        <span style="font-size:9px;color:#00f5ff;letter-spacing:0.18em">MOLECULAR INPUT — SELECT OR DROP FILE</span>
+        <button id="pinata-settings-btn" onclick="togglePinataSettings()" style="font-size:8px;padding:4px 9px;border:1px solid #334155;color:#475569;background:none;cursor:pointer;font-family:'Share Tech Mono',monospace;letter-spacing:0.08em;border-radius:2px">⚙ IPFS</button>
+      </div>
+      <div id="pinata-settings" style="display:none;background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:4px;padding:11px;flex-direction:column;gap:8px">
+        <div class="lbl">PINATA JWT — app.pinata.cloud/developers/api-keys</div>
+        <input type="password" id="pinata-jwt-input" placeholder="eyJhbGciOiJIUzI1NiIs...">
+        <div class="lbl">GATEWAY DOMAIN (OPTIONAL) — your-name.mypinata.cloud</div>
+        <input type="text" id="pinata-gateway-input" placeholder="leave blank to use public gateway">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-c" style="flex:1;font-size:9px;padding:7px" onclick="savePinataSettings()">SAVE</button>
+          <button class="btn" style="border:1px solid #450a0a;color:#ef4444;background:none;padding:7px 12px;font-size:9px" onclick="clearPinataSettings()">CLEAR</button>
+        </div>
+        <div id="pinata-settings-status" style="font-size:8px;min-height:12px"></div>
+        <div style="font-size:7px;color:#334155;line-height:1.5">Your JWT is stored only in this browser's localStorage. Files are encrypted before upload — Pinata only ever sees ciphertext.</div>
+      </div>
+      <div id="drop-zone" style="border:2px dashed #334155;border-radius:7px;padding:28px;text-align:center;cursor:pointer;transition:all 0.2s"
+        onclick="document.getElementById('fi').click()"
+        ondragover="event.preventDefault();this.style.borderColor='#00f5ff';this.style.background='rgba(0,245,255,0.04)'"
+        ondragleave="this.style.borderColor='#334155';this.style.background=''"
+        ondrop="handleDrop(event)">
+        <input type="file" id="fi" style="display:none" onchange="handleFileSelect(this)">
+        <div id="dz-content">
+          <div style="font-size:26px;color:#1e3a4a;margin-bottom:8px">⬆</div>
+          <div style="font-size:12px;color:#e2e8f0;font-weight:700;letter-spacing:0.08em">CLICK TO SELECT FILE</div>
+          <div style="font-size:9px;color:#475569;margin-top:3px">or drag &amp; drop — any file up to 100 MB</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div class="lbl">VAULT PASSPHRASE — REQUIRED FOR DECRYPTION</div>
+        <input type="password" id="synth-pass" placeholder="Enter a strong passphrase...">
+      </div>
+      <div id="synth-prog" style="display:none;flex-direction:column;gap:5px">
+        <div style="display:flex;justify-content:space-between;font-size:8px;color:#64748b"><span id="synth-prog-label">SYNTHESIZING DNA STRANDS...</span><span id="synth-pct">0%</span></div>
+        <div class="pbar"><div class="pfill" id="synth-bar" style="width:0%"></div></div>
+      </div>
+      <button class="btn btn-p" id="synth-btn" onclick="synthesizeFile()" disabled style="width:100%;font-size:10px;letter-spacing:0.12em;padding:10px">SYNTHESIZE &amp; VAULT FILE</button>
+      <div id="synth-status" style="font-size:9px;text-align:center;min-height:14px"></div>
+      <div id="dna-preview" style="display:none;background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:9px">
+        <div style="font-size:8px;color:#475569;margin-bottom:5px;letter-spacing:0.12em">DNA SAMPLE — FIRST 240 BASES</div>
+        <div id="dna-preview-content" style="font-family:'Share Tech Mono',monospace;font-size:8px;line-height:1.5;word-break:break-all"></div>
+      </div>
+      <div style="background:rgba(0,0,0,0.2);border:1px solid #0f172a;border-radius:3px;padding:9px;font-size:7px;color:#475569;line-height:1.55">
+        <span style="color:#94a3b8;font-weight:700">STORAGE:</span> Encrypted files saved in browser IndexedDB — <span style="color:#f59e0b">this device only</span>. Persists across refreshes. Max: <span style="color:#00f5ff">100 MB</span>.
+      </div>
+    </div>
+    <div class="hud-panel" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:7px">
+        <span id="vault-count" style="font-size:9px;color:#00f5ff;letter-spacing:0.18em">ENCRYPTED VAULT — 0 FILES</span>
+        <span id="vault-total" style="font-size:8px;color:#475569"></span>
+      </div>
+      <div id="vault-list" style="display:flex;flex-direction:column;gap:9px;max-height:520px;overflow-y:auto;padding-right:3px">
+        <div id="vault-empty" style="text-align:center;color:#334155;font-size:10px;margin-top:28px;line-height:1.8">No files vaulted yet.<br>Select a file and enter a passphrase to begin.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANALYTICS ═══ -->
+<div id="tab-analytics" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">DNA ANALYTICS</h2>
+    <p style="font-size:9px;letter-spacing:0.18em;color:#aa88ff;margin-top:3px">NUCLEOTIDE COMPOSITION — MOLECULAR ANALYSIS — SEQUENCE MAPPING</p>
+  </div>
+  <div class="g3">
+    <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">SEQUENCE INPUT</div>
+      <textarea id="an-input" rows="5" placeholder="Enter text to analyze its DNA encoding..." style="resize:none"></textarea>
+      <button class="btn btn-c" onclick="runAnalytics()" style="font-size:9px;padding:8px">ANALYZE SEQUENCE</button>
+      <div style="font-size:8px;color:#475569;letter-spacing:0.12em">DEMO SEQUENCES</div>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <button onclick="loadDemo('1 1 2 3 5 8 13 21 34 55 89 144 233 377')" class="demo-btn">FIBONACCI ENCODED</button>
+        <button onclick="loadDemo('Lorem ipsum dolor sit amet consectetur adipiscing elit')" class="demo-btn">LOREM IPSUM</button>
+        <button onclick="loadDemo('oOMCMOo DNA Vault oOMCMOo Network Immortal Synthetic 12 Strand')" class="demo-btn">oOMCMOo MANIFEST</button>
+        <button onclick="loadDemo('2 3 5 7 11 13 17 19 23 29 31 37 41 43 47')" class="demo-btn">PRIME SEQUENCE</button>
+      </div>
+    </div>
+    <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">NUCLEOTIDE COMPOSITION</div>
+      <div id="bar-chart" style="display:flex;align-items:flex-end;gap:6px;height:90px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="an-stats"></div>
+    </div>
+    <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">SEQUENCE BITMAP MAP</div>
+      <canvas id="seq-map" width="280" height="140" style="width:100%;border:1px solid #1e293b;border-radius:3px"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="an-extra"></div>
+    </div>
+  </div>
+  <div class="hud-panel" style="padding:14px;margin-top:14px">
+    <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">LIVE QUANTUM ENCRYPTION STREAM</div>
+    <div id="live-stream" style="display:flex;flex-direction:column;gap:2px;font-family:'Share Tech Mono',monospace;font-size:9px"></div>
+  </div>
+</div>
+
+<!-- ═══ WALLET ═══ -->
+<div id="tab-wallet" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">WALLET NEXUS</h2>
+    <p style="font-size:9px;letter-spacing:0.18em;color:#aa88ff;margin-top:3px">SOLANA WALLET CONNECTION — oOMCMOo DNA VAULT NETWORK</p>
+  </div>
+  <div id="w-connect" style="max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:12px">
+    <div class="hud-panel" style="padding:22px;text-align:center">
+      <div style="font-size:38px;opacity:0.2;margin-bottom:12px;color:#00f5ff">◎</div>
+      <p style="font-size:11px;color:#94a3b8;margin-bottom:18px">Connect your Solana wallet to access vault features, DAO voting, and oOMCMOo token management.</p>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <button class="wallet-opt" onclick="connectWallet('Phantom','👻','#ab9ff2')"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">👻</span><div style="text-align:left"><div style="font-size:11px;color:#ab9ff2;letter-spacing:0.08em">Phantom</div><div style="font-size:8px;color:#475569">Solana Wallet</div></div></div><span style="font-size:8px;color:#334155;letter-spacing:0.12em">CONNECT</span></button>
+        <button class="wallet-opt" onclick="connectWallet('Solflare','☀','#fc7227')"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">☀</span><div style="text-align:left"><div style="font-size:11px;color:#fc7227;letter-spacing:0.08em">Solflare</div><div style="font-size:8px;color:#475569">Solana Wallet</div></div></div><span style="font-size:8px;color:#334155;letter-spacing:0.12em">CONNECT</span></button>
+        <button class="wallet-opt" onclick="connectWallet('Backpack','🎒','#e33e3f')"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">🎒</span><div style="text-align:left"><div style="font-size:11px;color:#e33e3f;letter-spacing:0.08em">Backpack</div><div style="font-size:8px;color:#475569">Solana Wallet</div></div></div><span style="font-size:8px;color:#334155;letter-spacing:0.12em">CONNECT</span></button>
+      </div>
+    </div>
+    <div class="hud-panel" style="padding:10px;text-align:center"><p style="font-size:8px;color:#334155;letter-spacing:0.08em">Compatible with oOMCMOo DAO &bull; oOMCMOo Music Stellar &bull; DNA Vault NFTs &bull; oOMCMOo Token</p></div>
+  </div>
+  <div id="w-connected" style="display:none">
+    <div class="g3">
+      <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">
+          <span style="font-size:9px;color:#00f5ff;letter-spacing:0.18em">CONNECTED WALLET</span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:8px;color:#00ff88"><span class="sdot sdot-g" style="width:4px;height:4px"></span>LIVE</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px"><span id="w-icon" style="font-size:24px"></span><div><div id="w-name" style="font-size:11px;font-weight:700"></div><div style="font-size:8px;color:#475569">Solana Mainnet</div></div></div>
+        <div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:9px">
+          <div style="font-size:7px;color:#475569;letter-spacing:0.15em;margin-bottom:3px">WALLET ADDRESS</div>
+          <div id="w-addr" style="font-size:8px;color:#a5f3fc;word-break:break-all;line-height:1.4"></div>
+          <button id="copy-addr" onclick="copyWAddr()" style="margin-top:5px;font-size:8px;color:#475569;background:none;border:none;cursor:pointer;font-family:'Share Tech Mono',monospace">COPY ADDRESS</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:9px"><div style="font-size:7px;color:#475569;letter-spacing:0.12em">SOL BALANCE</div><div style="font-size:18px;font-weight:700;color:#f59e0b;margin-top:3px"><span id="w-sol"></span> <span style="font-size:10px;color:#64748b">SOL</span></div></div>
+          <div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:9px"><div style="font-size:7px;color:#475569;letter-spacing:0.12em">oOMCMOo TOKENS</div><div style="font-size:18px;font-weight:700;color:#aa88ff;margin-top:3px"><span id="w-token"></span> <span style="font-size:10px;color:#64748b">oOMCMOo</span></div></div>
+        </div>
+        <button class="btn" style="border:1px solid #450a0a;color:#ef4444;background:none;padding:7px;font-size:9px;letter-spacing:0.12em;margin-top:auto" onclick="disconnectWallet()">DISCONNECT</button>
+      </div>
+      <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:9px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">RECENT TRANSACTIONS</div>
+        <div id="live-tx" style="display:flex;flex-direction:column;gap:3px"></div>
+      </div>
+      <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:9px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">VAULT INTEGRATIONS</div>
+        <div id="w-integrations"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DAO ═══ -->
+<div id="tab-dao" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">DAO CONTROL</h2>
+    <p style="font-size:9px;letter-spacing:0.18em;color:#aa88ff;margin-top:3px">oOMCMOo DAO — DECENTRALIZED GOVERNANCE — oOMCMOo NETWORK</p>
+  </div>
+  <div id="dao-stats" class="g4" style="margin-bottom:14px"></div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+    <div id="proposals-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="hud-panel" style="padding:13px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">LIVE CHAIN</div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-size:8px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#475569">NETWORK</span><span style="color:#a5f3fc">Solana Mainnet</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#475569">CURRENT SLOT</span><span style="color:#f59e0b;font-family:'Share Tech Mono',monospace" id="dao-slot">#234000000</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#475569">GOV TOKEN</span><span style="color:#aa88ff">oOMCMOo</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:#475569">QUORUM</span><span style="color:#00ff88">10,000 VOTES</span></div>
+        </div>
+      </div>
+      <div class="hud-panel" style="padding:13px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">ROADMAP</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="background:rgba(0,0,0,0.3);border-radius:3px;padding:7px"><div style="font-size:8px;font-weight:700;color:#00ff88;margin-bottom:3px">✓ V1 MVP</div><div style="font-size:7px;color:#64748b">— Wallet Connect<br>— File Vault<br>— DNA Cipher</div></div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:3px;padding:7px"><div style="font-size:8px;font-weight:700;color:#475569;margin-bottom:3px">○ V2 DAO</div><div style="font-size:7px;color:#334155">— Token Integration<br>— NFT Ownership<br>— Multi-user Vault</div></div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:3px;padding:7px"><div style="font-size:8px;font-weight:700;color:#475569;margin-bottom:3px">○ V3 META</div><div style="font-size:7px;color:#334155">— VR Mode<br>— AR Mode<br>— DNA Marketplace</div></div>
+        </div>
+      </div>
+      <div class="hud-panel" style="padding:13px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">ECOSYSTEM</div>
+        <div id="dao-eco" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI CORE ═══ -->
+<div id="tab-ai" class="tab-panel">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;letter-spacing:0.3em;color:#a5f3fc;text-shadow:0 0 14px #00f5ff">AI CORE</h2>
+    <p style="font-size:9px;letter-spacing:0.18em;color:#aa88ff;margin-top:3px">oOMCMOo INTELLIGENT ASSISTANT — DNA VAULT KNOWLEDGE BASE</p>
+  </div>
+  <div style="display:grid;grid-template-columns:3fr 1fr;gap:14px">
+    <div class="hud-panel" style="padding:14px;display:flex;flex-direction:column;gap:10px;min-height:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px">
+        <span style="font-size:9px;color:#00f5ff;letter-spacing:0.18em">AI CORE TERMINAL</span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:8px;color:#00ff88"><span class="sdot sdot-g" style="width:4px;height:4px"></span>ONLINE</span>
+      </div>
+      <div id="ai-msgs" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;max-height:360px;padding-right:3px"></div>
+      <div style="display:flex;gap:7px;margin-top:auto">
+        <input type="text" id="ai-in" placeholder="Ask about DNA Vault, encryption, oOMCMOo..." onkeydown="if(event.key==='Enter')sendAI()">
+        <button class="btn btn-c" onclick="sendAI()" style="white-space:nowrap;padding:7px 12px;font-size:9px">SEND</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="hud-panel" style="padding:13px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">SUGGESTED QUERIES</div>
+        <div id="ai-sugg" style="display:flex;flex-direction:column;gap:1px"></div>
+      </div>
+      <div class="hud-panel" style="padding:13px">
+        <div style="font-size:9px;color:#00f5ff;letter-spacing:0.18em;border-bottom:1px solid rgba(0,245,255,0.12);padding-bottom:6px;margin-bottom:9px">KNOWLEDGE MODULES</div>
+        <div id="ai-mods" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /maincontent -->
+
+<!-- WINAMP -->
+<div id="winamp">
+  <audio id="audio-el" onended="nextTrack()" ontimeupdate="updateSeek()" onloadedmetadata="updateDur()"></audio>
+  <div style="padding:0 10px;border-right:1px solid rgba(0,245,255,0.12);height:100%;display:flex;align-items:center;flex-shrink:0">
+    <div style="text-align:center"><div style="font-size:7px;color:#00f5ff;font-weight:700;letter-spacing:0.18em;font-family:'Orbitron',sans-serif">oOMCMOo</div><div style="font-size:5px;color:#334155;letter-spacing:0.12em">DNA VAULT</div></div>
+  </div>
+  <div style="display:flex;align-items:center;padding:0 6px;border-right:1px solid rgba(0,245,255,0.12);height:100%;flex-shrink:0">
+    <button class="wbtn" onclick="prevTrack()">⏮</button>
+    <button class="wbtn" onclick="stopTrack()">⏹</button>
+    <button class="wbtn" id="play-btn" onclick="togglePlay()" style="color:#00ff88;text-shadow:0 0 8px #00ff88">▶</button>
+    <button class="wbtn" onclick="nextTrack()">⏭</button>
+  </div>
+  <div style="padding:0 10px;border-right:1px solid rgba(0,245,255,0.12);height:100%;display:flex;align-items:center;flex-shrink:0">
+    <div style="text-align:center"><div id="cur-time" style="font-size:10px;color:#00ff88;font-weight:700;letter-spacing:0.1em;text-shadow:0 0 8px rgba(0,255,136,0.4)">0:00</div><div id="tot-time" style="font-size:7px;color:#334155">--:--</div></div>
+  </div>
+  <div style="flex:1;min-width:0;padding:0 10px;display:flex;flex-direction:column;justify-content:center;gap:3px">
+    <div style="overflow:hidden;height:13px"><div id="scroll-title" style="font-size:9px;color:#a5f3fc;white-space:nowrap;letter-spacing:0.1em;text-shadow:0 0 6px rgba(0,245,255,0.4)">oOMCMOo - AKASHIC RECORDS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div></div>
+    <input type="range" id="seek-bar" min="0" max="1" step="0.01" value="0" oninput="seekTo(this.value)" style="width:100%;height:3px;accent-color:#00ff88;cursor:pointer">
+  </div>
+  <div style="display:flex;align-items:center;gap:5px;padding:0 10px;border-left:1px solid rgba(0,245,255,0.12);flex-shrink:0">
+    <span style="font-size:7px;color:#334155">VOL</span>
+    <input type="range" id="vol-bar" min="0" max="1" step="0.01" value="0.7" oninput="setVol(this.value)" style="width:56px;height:3px;accent-color:#00ccff;cursor:pointer">
+  </div>
+  <div style="padding:0 7px;border-left:1px solid rgba(0,245,255,0.12);height:100%;display:flex;align-items:center;flex-shrink:0">
+    <button id="pl-btn" onclick="togglePlaylist()" style="padding:4px 9px;border:1px solid #334155;color:#475569;background:none;cursor:pointer;font-size:9px;font-family:'Share Tech Mono',monospace;letter-spacing:0.08em;border-radius:2px;transition:all 0.2s">☰ PLAYLIST</button>
+  </div>
+</div>
+
+<!-- Playlist panel -->
+<div id="playlist-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid rgba(0,245,255,0.12)">
+    <span style="font-size:8px;color:#00f5ff;letter-spacing:0.2em;font-family:'Orbitron',sans-serif">HOLOGRAPHIC PLAYLIST</span>
+    <button onclick="togglePlaylist()" style="color:#475569;background:none;border:none;cursor:pointer;font-size:11px">✕</button>
+  </div>
+  <div style="padding:5px 0;max-height:180px;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 12px;background:rgba(0,245,255,0.05);border-left:2px solid #00f5ff;cursor:pointer" onclick="togglePlaylist()">
+      <span style="font-size:7px;color:#475569;width:14px">01</span>
+      <div style="flex:1"><div style="font-size:10px;color:#a5f3fc;font-family:'Share Tech Mono',monospace">AKASHIC RECORDS</div><div style="font-size:7px;color:#475569">oOMCMOo</div></div>
+      <div style="display:flex;gap:1px;align-items:flex-end;height:10px">
+        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0s infinite;height:40%"></div>
+        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.1s infinite;height:70%"></div>
+        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.2s infinite;height:55%"></div>
+      </div>
+    </div>
+  </div>
+  <div style="padding:5px 12px;border-top:1px solid rgba(0,245,255,0.08);font-size:7px;color:#334155">1 TRACK &bull; oOMCMOo NETWORK</div>
+</div>
+
+<!-- Media modal -->
+<div id="media-modal" onclick="if(event.target===this)closeModal()">
+  <div style="width:100%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;border:1px solid rgba(0,245,255,0.22);border-radius:5px;overflow:hidden;box-shadow:0 0 40px rgba(0,245,255,0.08)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:rgba(0,0,0,0.85);border-bottom:1px solid rgba(0,245,255,0.08)">
+      <div><div id="modal-name" style="font-size:9px;color:#00f5ff;letter-spacing:0.12em"></div><div id="modal-mime" style="font-size:7px;color:#334155"></div></div>
+      <button onclick="closeModal()" style="background:none;border:1px solid #334155;color:#475569;width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:10px">✕</button>
+    </div>
+    <div id="modal-content" style="flex:1;overflow:auto;background:#000;display:flex;align-items:center;justify-content:center;padding:14px;min-height:180px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(0,0,0,0.85);border-top:1px solid rgba(0,245,255,0.08)">
+      <span style="font-size:7px;color:#334155">DECRYPTED IN-BROWSER — AES-256-GCM</span>
+      <a id="modal-dl" href="#" download style="font-size:8px;padding:4px 10px;border:1px solid rgba(0,245,255,0.35);color:#00f5ff;text-decoration:none;letter-spacing:0.08em">DOWNLOAD</a>
+    </div>
+  </div>
+</div>
+
+<style>
+.demo-btn{text-align:left;font-size:8px;color:#94a3b8;background:none;border:none;border-bottom:1px solid #0f172a;
+padding:4px 0;cursor:pointer;font-family:'Share Tech Mono',monospace;width:100%;transition:color 0.2s}
+.demo-btn:hover{color:#00f5ff}
+#media-modal{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.93);align-items:center;justify-content:center;padding:12px}
+</style>
+<script>
+// ══ DNA CODEC ══
+const B2B=["A","T","G","C"];const B2N={A:0,T:1,G:2,C:3};
+function bytesToDNA(b){let d="";for(const x of b){d+=B2B[(x>>6)&3]+B2B[(x>>4)&3]+B2B[(x>>2)&3]+B2B[x&3];}return d;}
+function dnaToBytes(dna){const c=dna.replace(/[^ATGC]/g,"");if(c.length%4!==0)throw new Error("bad DNA");const b=new Uint8Array(c.length/4);for(let i=0;i<b.length;i++){b[i]=(B2N[c[i*4]]<<6)|(B2N[c[i*4+1]]<<4)|(B2N[c[i*4+2]]<<2)|B2N[c[i*4+3]];}return b;}
+function textToDNA(t){return bytesToDNA(new TextEncoder().encode(t));}
+function dnaStats(dna){const c={A:0,T:0,G:0,C:0};for(const b of dna)if(b in c)c[b]++;const total=c.A+c.T+c.G+c.C;return{...c,total,gcContent:total?(((c.G+c.C)/total)*100).toFixed(1)+"%":"0%"};}
+function fmtDNA(dna,n=80){return dna.match(new RegExp(`.{1,${n}}`,"g"))?.join("\n")??dna;}
+
+// ══ CRYPTO ══
+function u8B64(arr){let s="";const ch=8192;for(let i=0;i<arr.length;i+=ch)s+=String.fromCharCode(...arr.subarray(i,i+ch));return btoa(s);}
+function b64U8(b){const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
+async function deriveKey(p,salt){const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(p),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},km,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+async function encryptData(data,p){const salt=crypto.getRandomValues(new Uint8Array(32));const iv=crypto.getRandomValues(new Uint8Array(12));const key=await deriveKey(p,salt);const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,data);const out=new Uint8Array(32+12+ct.byteLength);out.set(salt,0);out.set(iv,32);out.set(new Uint8Array(ct),44);return u8B64(out);}
+async function decryptData(payload,p){const d=b64U8(payload);const key=await deriveKey(p,d.slice(0,32));return crypto.subtle.decrypt({name:"AES-GCM",iv:d.slice(32,44)},key,d.slice(44));}
+
+// ══ TABS ══
+function switchTab(id,btn,color){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('active');b.style.borderBottomColor='transparent';b.querySelector('.tab-label').style.color='';});
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');btn.style.borderBottomColor=color;btn.querySelector('.tab-label').style.color=color;
+}
+
+// ══ DNA CIPHER ══
+let cMode='encrypt',cOut='';
+const DC={A:'#00ff88',T:'#00ccff',G:'#ffcc00',C:'#ff44aa'};
+function colorDNA(dna){
+  const CAP=6000; // cap colored rendering to keep DOM light on long PQC outputs
+  const visible=dna.length>CAP?dna.slice(0,CAP):dna;
+  const html=fmtDNA(visible,80).split('\n').map(l=>'<div>'+l.split('').map(c=>`<span style="color:${DC[c]||'#aaa'}">${c}</span>`).join('')+'</div>').join('');
+  if(dna.length>CAP){
+    return html+`<div style="color:#334155;font-size:9px;margin-top:6px;letter-spacing:0.08em">… ${(dna.length-CAP).toLocaleString()} more bases (full sequence is in COPY) — rendering capped for performance</div>`;
+  }
+  return html;
+}
+function setCipherMode(m){
+  cMode=m;
+  ['encrypt','decrypt','raw'].forEach(x=>document.getElementById('mode-'+x).classList.remove('active'));
+  document.getElementById('mode-'+m).classList.add('active');
+  const L={encrypt:{i:'PLAINTEXT INPUT',o:'DNA SEQUENCE OUTPUT',b:'ENCODE TO DNA SEQUENCE',p:'Enter your secret message...'},
+    decrypt:{i:'DNA SEQUENCE INPUT',o:'DECODED TEXT',b:'DECODE DNA SEQUENCE',p:'Paste DNA sequence (ATGC...)...'},
+    raw:{i:'TEXT INPUT',o:'DNA SEQUENCE OUTPUT',b:'GENERATE RAW DNA',p:'Enter any text to see its DNA encoding...'}};
+  document.getElementById('ci-label').textContent=L[m].i;
+  document.getElementById('co-label').textContent=L[m].o;
+  document.getElementById('ci-run').textContent=L[m].b;
+  document.getElementById('ci-input').placeholder=L[m].p;
+  document.getElementById('ci-pass-wrap').style.display=m==='raw'?'none':'flex';
+  document.getElementById('ci-output').innerHTML='<span style="color:#334155;font-size:10px">Output will appear here...</span>';
+  document.getElementById('ci-stats').style.display='none';
+  document.getElementById('ci-status').textContent='';
+  cOut='';
+}
+async function runCipher(){
+  const inp=document.getElementById('ci-input').value.trim();
+  const pass=document.getElementById('ci-pass').value;
+  if(!inp)return;
+  const stat=document.getElementById('ci-status');
+  const out=document.getElementById('ci-output');
+  const prog=document.getElementById('ci-progress-line');
+  const pqcOn=document.getElementById('ci-pqc-toggle').checked && cMode!=='raw' && !!pass;
+  const onProg=(msg)=>{prog.textContent=msg;};
+  stat.innerHTML='<span style="color:#00f5ff">PROCESSING...</span>';out.innerHTML='';prog.textContent='';
+  document.getElementById('ci-run').disabled=true;
+  try{
+    if(cMode==='encrypt'){
+      let dna;
+      if(pass&&pqcOn){
+        const blob=await encryptHybridPQC(new TextEncoder().encode(inp),pass,onProg);
+        dna=bytesToDNA(blob);
+        cOut=dna;out.innerHTML=colorDNA(dna);showStats(dnaStats(dna));
+        stat.innerHTML='<span style="color:#00ff88">✓ HYBRID POST-QUANTUM ENCRYPTED &amp; ENCODED</span>';
+      } else if(pass){
+        dna=bytesToDNA(b64U8(await encryptData(new TextEncoder().encode(inp).buffer,pass)));
+        cOut=dna;out.innerHTML=colorDNA(dna);showStats(dnaStats(dna));
+        stat.innerHTML='<span style="color:#00ff88">ENCODED SUCCESSFULLY (CLASSIC AES-256-GCM)</span>';
+      } else {
+        dna=textToDNA(inp);
+        cOut=dna;out.innerHTML=colorDNA(dna);showStats(dnaStats(dna));
+        stat.innerHTML='<span style="color:#00ff88">ENCODED SUCCESSFULLY</span>';
+      }
+    } else if(cMode==='decrypt'){
+      const clean=inp.replace(/[^ATGC]/g,'');const bytes=dnaToBytes(clean);
+      let result;
+      if(pass&&pqcOn){
+        const pt=await decryptHybridPQC(bytes,pass,onProg);
+        result=new TextDecoder().decode(pt);
+        cOut=result;out.innerHTML=`<pre style="color:#00ff88;font-size:11px;white-space:pre-wrap;word-break:break-word">${result}</pre>`;
+        stat.innerHTML='<span style="color:#00ff88">✓ ZERO-TRUST SIGNATURE VERIFIED — DECODED</span>';
+      } else if(pass){
+        result=new TextDecoder().decode(await decryptData(u8B64(bytes),pass));
+        cOut=result;out.innerHTML=`<pre style="color:#00ff88;font-size:11px;white-space:pre-wrap;word-break:break-word">${result}</pre>`;
+        stat.innerHTML='<span style="color:#00ff88">DECODED SUCCESSFULLY (CLASSIC AES-256-GCM)</span>';
+      } else {
+        result=new TextDecoder().decode(bytes);
+        cOut=result;out.innerHTML=`<pre style="color:#00ff88;font-size:11px;white-space:pre-wrap;word-break:break-word">${result}</pre>`;
+        stat.innerHTML='<span style="color:#00ff88">DECODED SUCCESSFULLY</span>';
+      }
+    } else {
+      const dna=textToDNA(inp);cOut=dna;out.innerHTML=colorDNA(dna);showStats(dnaStats(dna));
+      stat.innerHTML='<span style="color:#00ff88">RAW DNA GENERATED</span>';
+    }
+  } catch(e){
+    prog.textContent='';
+    const fallbackMsg=cMode==='decrypt'?'Decryption failed. Check passphrase and post-quantum mode toggle (must match how it was encrypted).':'Encryption failed.';
+    stat.innerHTML=`<span style="color:#ef4444">${e?.message||fallbackMsg}</span>`;
+  }
+  document.getElementById('ci-run').disabled=false;
+}
+function showStats(s){document.getElementById('s-A').textContent=s.A;document.getElementById('s-T').textContent=s.T;document.getElementById('s-G').textContent=s.G;document.getElementById('s-C').textContent=s.C;document.getElementById('s-GC').textContent=s.gcContent;document.getElementById('ci-stats').style.display='grid';}
+function clearCipher(){document.getElementById('ci-input').value='';document.getElementById('ci-pass').value='';document.getElementById('ci-output').innerHTML='<span style="color:#334155;font-size:10px">Output will appear here...</span>';document.getElementById('ci-stats').style.display='none';document.getElementById('ci-status').textContent='';document.getElementById('ci-progress-line').textContent='';cOut='';}
+function copyCO(){if(cOut)navigator.clipboard.writeText(cOut);}
+
+// ══ HYBRID POST-QUANTUM CRYPTO (ML-KEM-1024 + ML-DSA-65 + AES-256-GCM) ══
+// Real NIST FIPS 203 (ML-KEM) / FIPS 204 (ML-DSA) algorithms via audited @noble/post-quantum.
+// Fixed wire sizes per spec: ML-KEM-1024 ciphertext = 1568 bytes, ML-DSA-65 signature = 3309 bytes.
+const KEM_CT_LEN=1568, SIG_LEN=3309;
+let pqcLibPromise=null;
+function loadPQC(onProgress){
+  if(!pqcLibPromise){
+    onProgress?.('Loading post-quantum cipher library...');
+    pqcLibPromise=Promise.all([
+      import('https://esm.sh/@noble/post-quantum/ml-kem.js'),
+      import('https://esm.sh/@noble/post-quantum/ml-dsa.js')
+    ]).then(([kemMod,dsaMod])=>({ml_kem1024:kemMod.ml_kem1024,ml_dsa65:dsaMod.ml_dsa65}))
+      .catch(e=>{pqcLibPromise=null;throw new Error('Could not load PQC library — check internet connection (only needed once).');});
+  }
+  return pqcLibPromise;
+}
+async function deriveHybridSeeds(passphrase,salt){
+  // One PBKDF2 derivation (600k iter SHA-256), split into 3 independent seeds:
+  // 64 bytes -> ML-KEM-1024 keygen seed (FIPS 203 requires exactly 64 bytes: d||z)
+  // 32 bytes -> classical key material mixed into final AES key
+  // 32 bytes -> ML-DSA-65 keygen seed
+  const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(passphrase),"PBKDF2",false,["deriveBits"]);
+  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},km,128*8);
+  const all=new Uint8Array(bits);
+  return {kemSeed:all.slice(0,64),classicalKey:all.slice(64,96),dsaSeed:all.slice(96,128)};
+}
+async function mixToAesKey(classicalKey,kemShared,usage){
+  const mixed=new Uint8Array(classicalKey.length+kemShared.length);
+  mixed.set(classicalKey,0);mixed.set(kemShared,classicalKey.length);
+  const digest=await crypto.subtle.digest('SHA-256',mixed);
+  return crypto.subtle.importKey('raw',digest,{name:'AES-GCM'},false,[usage]);
+}
+async function encryptHybridPQC(plainBytes,passphrase,onProgress){
+  const {ml_kem1024,ml_dsa65}=await loadPQC(onProgress);
+  onProgress?.('Deriving keys from passphrase (PBKDF2 600k)...');
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const {kemSeed,classicalKey,dsaSeed}=await deriveHybridSeeds(passphrase,salt);
+  onProgress?.('Generating ML-KEM-1024 keypair...');
+  const kemKeys=ml_kem1024.keygen(kemSeed);
+  onProgress?.('Encapsulating quantum-resistant shared secret...');
+  const {cipherText:kemCT,sharedSecret:kemShared}=ml_kem1024.encapsulate(kemKeys.publicKey);
+  onProgress?.('Deriving hybrid AES-256 key...');
+  const aesKey=await mixToAesKey(classicalKey,kemShared,'encrypt');
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  onProgress?.('AES-256-GCM encrypting...');
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aesKey,plainBytes));
+  onProgress?.('Signing with ML-DSA-65 (zero-trust integrity layer)...');
+  const dsaKeys=ml_dsa65.keygen(dsaSeed);
+  const sig=ml_dsa65.sign(dsaKeys.secretKey,ct);
+  const blob=new Uint8Array(16+12+kemCT.length+sig.length+ct.length);
+  let o=0;
+  blob.set(salt,o);o+=16;
+  blob.set(iv,o);o+=12;
+  blob.set(kemCT,o);o+=kemCT.length;
+  blob.set(sig,o);o+=sig.length;
+  blob.set(ct,o);
+  onProgress?.('Complete.');
+  return blob;
+}
+async function decryptHybridPQC(blob,passphrase,onProgress){
+  const {ml_kem1024,ml_dsa65}=await loadPQC(onProgress);
+  if(blob.length<16+12+KEM_CT_LEN+SIG_LEN)throw new Error('Sequence too short to be valid post-quantum cipher data.');
+  let o=0;
+  const salt=blob.slice(o,o+16);o+=16;
+  const iv=blob.slice(o,o+12);o+=12;
+  const kemCT=blob.slice(o,o+KEM_CT_LEN);o+=KEM_CT_LEN;
+  const sig=blob.slice(o,o+SIG_LEN);o+=SIG_LEN;
+  const ct=blob.slice(o);
+  onProgress?.('Re-deriving keys from passphrase...');
+  const {kemSeed,classicalKey,dsaSeed}=await deriveHybridSeeds(passphrase,salt);
+  const kemKeys=ml_kem1024.keygen(kemSeed);
+  onProgress?.('Decapsulating ML-KEM-1024 shared secret...');
+  const kemShared=ml_kem1024.decapsulate(kemCT,kemKeys.secretKey);
+  const dsaKeys=ml_dsa65.keygen(dsaSeed);
+  onProgress?.('ZERO-TRUST CHECK: verifying ML-DSA-65 signature before decrypting...');
+  const valid=ml_dsa65.verify(dsaKeys.publicKey,ct,sig);
+  if(!valid)throw new Error('Signature verification failed — wrong passphrase or tampered/corrupted data. Decryption blocked.');
+  onProgress?.('Signature verified. AES-256-GCM decrypting...');
+  const aesKey=await mixToAesKey(classicalKey,kemShared,'decrypt');
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},aesKey,ct);
+  onProgress?.('Complete.');
+  return new Uint8Array(pt);
+}
+
+// ══ PINATA SETTINGS ══
+function getPinataJWT(){return localStorage.getItem('pinata_jwt')||'';}
+function getPinataGateway(){return localStorage.getItem('pinata_gateway')||'';}
+function togglePinataSettings(){
+  const el=document.getElementById('pinata-settings');
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(!open){
+    document.getElementById('pinata-jwt-input').value=getPinataJWT();
+    document.getElementById('pinata-gateway-input').value=getPinataGateway();
+  }
+}
+function savePinataSettings(){
+  const jwt=document.getElementById('pinata-jwt-input').value.trim();
+  const gw=document.getElementById('pinata-gateway-input').value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(jwt)localStorage.setItem('pinata_jwt',jwt);else localStorage.removeItem('pinata_jwt');
+  if(gw)localStorage.setItem('pinata_gateway',gw);else localStorage.removeItem('pinata_gateway');
+  const st=document.getElementById('pinata-settings-status');
+  st.innerHTML=jwt?'<span style="color:#00ff88">SAVED — IPFS UPLOADS ENABLED</span>':'<span style="color:#f59e0b">JWT CLEARED — IPFS UPLOADS DISABLED</span>';
+  updatePinataIndicator();
+}
+function clearPinataSettings(){
+  localStorage.removeItem('pinata_jwt');localStorage.removeItem('pinata_gateway');
+  document.getElementById('pinata-jwt-input').value='';document.getElementById('pinata-gateway-input').value='';
+  document.getElementById('pinata-settings-status').innerHTML='<span style="color:#f59e0b">CLEARED</span>';
+  updatePinataIndicator();
+}
+function updatePinataIndicator(){
+  const btn=document.getElementById('pinata-settings-btn');
+  if(!btn)return;
+  if(getPinataJWT()){btn.style.borderColor='#00ff88';btn.style.color='#00ff88';btn.textContent='⚙ IPFS ON';}
+  else{btn.style.borderColor='#334155';btn.style.color='#475569';btn.textContent='⚙ IPFS';}
+}
+async function uploadToPinata(bytes,filename){
+  const jwt=getPinataJWT();
+  if(!jwt)return null;
+  const blob=new Blob([bytes],{type:'application/octet-stream'});
+  const file=new File([blob],filename+'.enc',{type:'application/octet-stream'});
+  const fd=new FormData();
+  fd.append('file',file);
+  fd.append('network','public');
+  const res=await fetch('https://uploads.pinata.cloud/v3/files',{
+    method:'POST',
+    headers:{Authorization:`Bearer ${jwt}`},
+    body:fd
+  });
+  if(!res.ok){
+    let msg=`Upload failed (${res.status})`;
+    try{const j=await res.json();if(j?.error?.message)msg=j.error.message;}catch{}
+    throw new Error(msg);
+  }
+  const json=await res.json();
+  return json.data?.cid||json.cid||null;
+}
+function pinataGatewayLink(cid){
+  const gw=getPinataGateway();
+  return gw?`https://${gw}/ipfs/${cid}`:`https://gateway.pinata.cloud/ipfs/${cid}`;
+}
+
+// ══ INDEXEDDB ══
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('oOMCMOo_DNA_Vault',1);r.onupgradeneeded=()=>r.result.createObjectStore('vault',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function loadVaultDB(){try{const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('vault','readonly');const r=tx.objectStore('vault').getAll();r.onsuccess=()=>res(r.result??[]);r.onerror=()=>rej(r.error);});}catch{return[];}}
+async function addEntryDB(e){try{const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('vault','readwrite');tx.objectStore('vault').put(e);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}catch{}}
+async function delEntryDB(id){try{const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('vault','readwrite');tx.objectStore('vault').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}catch{}}
+
+// ══ SYNTHESIZER ══
+let vaultEntries=[],selFile=null,previewUrl=null;
+const MAX_B=100*1024*1024;
+const B32='abcdefghijklmnopqrstuvwxyz234567';
+function fakeCID(){return'bafybei'+Array.from({length:52},()=>B32[Math.floor(Math.random()*B32.length)]).join('');}
+function fmtSz(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(2)+' MB';}
+function guessMime(f){if(f.type)return f.type;const e=f.name.split('.').pop()?.toLowerCase()||'';const m={mp3:'audio/mpeg',mp4:'video/mp4',wav:'audio/wav',ogg:'audio/ogg',webm:'video/webm',m4a:'audio/mp4',pdf:'application/pdf',html:'text/html',htm:'text/html',txt:'text/plain',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',webp:'image/webp'};return m[e]||'application/octet-stream';}
+function handleFileSelect(inp){if(inp.files[0])setFile(inp.files[0]);}
+function handleDrop(e){e.preventDefault();const dz=document.getElementById('drop-zone');dz.style.borderColor='#334155';dz.style.background='';if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);}
+function setFile(f){
+  selFile=f;const mime=guessMime(f);const big=f.size>MAX_B;
+  document.getElementById('dz-content').innerHTML=`<div style="color:${big?'#ef4444':'#00ff88'};font-size:12px;font-weight:700;word-break:break-all">${f.name}</div><div style="font-size:9px;color:#94a3b8;margin-top:3px">${fmtSz(f.size)} &bull; ${mime}</div>${big?'<div style="color:#ef4444;font-size:8px;margin-top:5px;font-weight:700">FILE EXCEEDS 100 MB LIMIT</div>':''}<div style="color:#00f5ff;font-size:8px;margin-top:5px;letter-spacing:0.12em">CLICK TO CHANGE FILE</div>`;
+  document.getElementById('drop-zone').style.borderColor=big?'#ef4444':'#00ff88';
+  document.getElementById('synth-btn').disabled=!f||big;
+  document.getElementById('synth-status').textContent='';
+  document.getElementById('dna-preview').style.display='none';
+}
+function setProgress(p){document.getElementById('synth-pct').textContent=p+'%';document.getElementById('synth-bar').style.width=p+'%';}
+async function synthesizeFile(){
+  const pass=document.getElementById('synth-pass').value;
+  if(!selFile||!pass)return;
+  document.getElementById('synth-btn').disabled=true;
+  document.getElementById('synth-prog').style.display='flex';
+  document.getElementById('synth-status').textContent='';
+  const progLabel=document.getElementById('synth-prog-label');
+  progLabel.textContent='SYNTHESIZING DNA STRANDS...';
+  setProgress(10);
+  try{
+    const buf=await selFile.arrayBuffer();setProgress(28);
+    const enc=await encryptData(buf,pass);setProgress(60);
+    const sample=b64U8(enc.substring(0,164)).slice(0,120);
+    const sampleDNA=bytesToDNA(sample);const st=dnaStats(sampleDNA);
+    const entry={id:crypto.randomUUID(),name:selFile.name,size:selFile.size,mimeType:guessMime(selFile),dnaLength:Math.floor(enc.length*0.75)*4,gcContent:st.gcContent,encryptedB64:enc,timestamp:Date.now(),ipfsCid:null,ipfsError:null};
+
+    if(getPinataJWT()){
+      progLabel.textContent='UPLOADING TO IPFS...';setProgress(75);
+      try{
+        const fullBytes=b64U8(enc);
+        const cid=await uploadToPinata(fullBytes,selFile.name);
+        entry.ipfsCid=cid;
+      } catch(ipfsErr){
+        entry.ipfsError=ipfsErr.message||'IPFS upload failed';
+      }
+    }
+
+    setProgress(95);
+    await addEntryDB(entry);vaultEntries.unshift(entry);renderVault();
+    setProgress(100);
+    if(entry.ipfsCid){
+      document.getElementById('synth-status').innerHTML='<span style="color:#00ff88;letter-spacing:0.12em">FILE VAULTED — PINNED TO IPFS</span>';
+    } else if(entry.ipfsError){
+      document.getElementById('synth-status').innerHTML=`<span style="color:#f59e0b;letter-spacing:0.1em">VAULTED LOCALLY — IPFS UPLOAD FAILED: ${entry.ipfsError}</span>`;
+    } else {
+      document.getElementById('synth-status').innerHTML='<span style="color:#00ff88;letter-spacing:0.12em">FILE VAULTED LOCALLY</span>';
+    }
+    document.getElementById('dna-preview-content').innerHTML=sampleDNA.slice(0,240).split('').map(c=>`<span style="color:${DC[c]||'#aaa'}">${c}</span>`).join('')+'<span style="color:#334155">...</span>';
+    document.getElementById('dna-preview').style.display='block';
+    selFile=null;document.getElementById('synth-pass').value='';document.getElementById('fi').value='';
+    document.getElementById('drop-zone').style.borderColor='#334155';
+    document.getElementById('dz-content').innerHTML='<div style="font-size:26px;color:#1e3a4a;margin-bottom:8px">⬆</div><div style="font-size:12px;color:#e2e8f0;font-weight:700;letter-spacing:0.08em">CLICK TO SELECT FILE</div><div style="font-size:9px;color:#475569;margin-top:3px">or drag & drop — any file up to 100 MB</div>';
+  } catch(e){document.getElementById('synth-status').innerHTML='<span style="color:#ef4444">Synthesis failed. Check file and passphrase.</span>';}
+  document.getElementById('synth-prog').style.display='none';
+  document.getElementById('synth-btn').disabled=false;
+}
+function renderVault(){
+  const list=document.getElementById('vault-list');const empty=document.getElementById('vault-empty');
+  document.getElementById('vault-count').textContent=`ENCRYPTED VAULT — ${vaultEntries.length} FILE${vaultEntries.length!==1?'S':''}`;
+  document.getElementById('vault-total').textContent=vaultEntries.length?fmtSz(vaultEntries.reduce((s,e)=>s+e.size,0))+' total':'';
+  if(vaultEntries.length===0){empty.style.display='block';return;}
+  empty.style.display='none';list.innerHTML='';
+  vaultEntries.forEach(e=>{
+    const canPlay=e.mimeType.startsWith('audio/')||e.mimeType.startsWith('video/')||e.mimeType.startsWith('image/')||e.mimeType==='application/pdf'||e.mimeType==='text/html';
+    const div=document.createElement('div');div.className='vi';
+    div.innerHTML=`<div style="display:flex;align-items:start;justify-content:space-between;gap:7px"><div style="flex:1;min-width:0"><div style="font-size:11px;color:#e2e8f0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div><div style="font-size:8px;color:#64748b;margin-top:2px">${fmtSz(e.size)} &bull; ${new Date(e.timestamp).toLocaleString()}</div></div><button onclick="delEntry('${e.id}')" style="width:20px;height:20px;border:1px solid #1e293b;background:none;color:#334155;cursor:pointer;border-radius:2px;font-size:9px;flex-shrink:0">✕</button></div>
+    <div class="vs"><div class="vc"><div class="lbl">DNA BASES</div><div style="color:#00f5ff;font-weight:700;font-size:9px">${e.dnaLength.toLocaleString()}</div></div><div class="vc"><div class="lbl">GC CONTENT</div><div style="color:#f59e0b;font-weight:700;font-size:9px">${e.gcContent}</div></div><div class="vc"><div class="lbl">CIPHER</div><div style="color:#aa88ff;font-weight:700;font-size:9px">AES-256</div></div></div>
+    ${e.ipfsCid?`<div style="background:rgba(0,0,0,0.3);border:1px solid #1e293b;border-radius:3px;padding:7px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:7px;color:#475569;letter-spacing:0.12em">IPFS CID</span><span style="font-size:7px;color:#00ff88;display:flex;align-items:center;gap:2px"><span style="width:4px;height:4px;border-radius:50%;background:#00ff88;display:inline-block"></span>PINNED</span></div><a href="${pinataGatewayLink(e.ipfsCid)}" target="_blank" rel="noopener" style="font-size:7px;color:#00f5ff;font-family:'Share Tech Mono',monospace;word-break:break-all;line-height:1.4;text-decoration:none">${e.ipfsCid}</a></div>`
+    :e.ipfsError?`<div style="background:rgba(0,0,0,0.3);border:1px solid #450a0a;border-radius:3px;padding:7px"><span style="font-size:7px;color:#f59e0b">IPFS UPLOAD FAILED: ${e.ipfsError}</span></div>`
+    :`<div style="background:rgba(0,0,0,0.2);border:1px solid #0f172a;border-radius:3px;padding:7px"><span style="font-size:7px;color:#334155">STORED LOCALLY ONLY — IPFS NOT CONFIGURED</span></div>`}
+    <div style="display:flex;gap:5px;margin-top:2px"><input type="password" id="dp-${e.id}" placeholder="${canPlay?'Passphrase to decrypt & play...':'Passphrase to decrypt & download...'}" style="flex:1;font-size:10px;padding:5px 7px" onkeydown="if(event.key==='Enter')decryptEntry('${e.id}','${e.mimeType}','${e.name}',${canPlay})"><button onclick="decryptEntry('${e.id}','${e.mimeType}','${e.name}',${canPlay})" style="padding:4px 9px;border:1px solid rgba(0,245,255,0.35);color:#00f5ff;background:none;cursor:pointer;font-size:8px;font-family:'Share Tech Mono',monospace;letter-spacing:0.08em;font-weight:700">${canPlay?'PLAY':'DECRYPT'}</button></div>
+    <div id="ds-${e.id}" style="font-size:8px;min-height:10px;color:#ef4444"></div>`;
+    list.appendChild(div);
+  });
+}
+async function decryptEntry(id,mime,name,canPlay){
+  const pass=document.getElementById('dp-'+id)?.value;if(!pass)return;
+  const st=document.getElementById('ds-'+id);st.textContent='Decrypting...';st.style.color='#00f5ff';
+  const entry=vaultEntries.find(e=>e.id===id);if(!entry)return;
+  try{
+    const buf=await decryptData(entry.encryptedB64,pass);
+    if(canPlay){if(previewUrl)URL.revokeObjectURL(previewUrl);const url=URL.createObjectURL(new Blob([buf],{type:mime}));previewUrl=url;openModal(name,mime,url);}
+    else{const url=URL.createObjectURL(new Blob([buf],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+    st.textContent='';document.getElementById('dp-'+id).value='';
+  } catch{st.textContent='Wrong passphrase or corrupted data.';st.style.color='#ef4444';}
+}
+async function delEntry(id){await delEntryDB(id);vaultEntries=vaultEntries.filter(e=>e.id!==id);renderVault();}
+function openModal(name,mime,url){
+  document.getElementById('modal-name').textContent=name;document.getElementById('modal-mime').textContent=mime;
+  document.getElementById('modal-dl').href=url;document.getElementById('modal-dl').download=name;
+  const c=document.getElementById('modal-content');
+  if(mime.startsWith('audio/'))c.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px"><div style="font-size:44px;color:#00f5ff;opacity:0.18">♪</div><div style="font-size:11px;color:#94a3b8;letter-spacing:0.12em">${name}</div><audio controls autoplay src="${url}" style="width:100%;max-width:340px;filter:hue-rotate(160deg) brightness(1.2)"></audio></div>`;
+  else if(mime.startsWith('video/'))c.innerHTML=`<video controls autoplay src="${url}" style="max-width:100%;max-height:58vh"></video>`;
+  else if(mime.startsWith('image/'))c.innerHTML=`<img src="${url}" alt="${name}" style="max-width:100%;max-height:58vh;object-fit:contain">`;
+  else if(mime==='application/pdf')c.innerHTML=`<iframe src="${url}" style="width:100%;height:58vh;border:none"></iframe>`;
+  else if(mime==='text/html')c.innerHTML=`<iframe src="${url}" style="width:100%;height:58vh;border:none" sandbox="allow-scripts allow-same-origin"></iframe>`;
+  document.getElementById('media-modal').style.display='flex';
+}
+function closeModal(){document.getElementById('media-modal').style.display='none';document.getElementById('modal-content').innerHTML='';}
+
+// ══ ANALYTICS ══
+function loadDemo(t){document.getElementById('an-input').value=t;runAnalytics();}
+function runAnalytics(){
+  const t=document.getElementById('an-input').value.trim();if(!t)return;
+  const dna=textToDNA(t);const s=dnaStats(dna);
+  // Bar chart
+  const bc=document.getElementById('bar-chart');
+  const max=Math.max(s.A,s.T,s.G,s.C,1);
+  bc.innerHTML=[['A','#00ff88'],['T','#00ccff'],['G','#ffcc00'],['C','#ff44aa']].map(([b,c])=>`<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:2px"><div style="font-size:8px;color:${c}">${s[b]}</div><div style="width:100%;border-radius:2px 2px 0 0;background:${c};box-shadow:0 0 6px ${c};height:${Math.max(2,(s[b]/max)*72)}px"></div><div style="font-size:8px;font-weight:700;color:${c}">${b}</div></div>`).join('');
+  // Stats
+  const total=s.total;
+  document.getElementById('an-stats').innerHTML=[['ADENINE %',total?(s.A/total*100).toFixed(1)+'%':'0%','#00ff88'],['THYMINE %',total?(s.T/total*100).toFixed(1)+'%':'0%','#00ccff'],['GUANINE %',total?(s.G/total*100).toFixed(1)+'%':'0%','#ffcc00'],['CYTOSINE %',total?(s.C/total*100).toFixed(1)+'%':'0%','#ff44aa'],['GC CONTENT',s.gcContent,'#aa88ff'],['TOTAL BASES',total.toLocaleString(),'#88aacc'],['A/T RATIO',s.T?(s.A/s.T).toFixed(2):'N/A','#f59e0b'],['G/C RATIO',s.C?(s.G/s.C).toFixed(2):'N/A','#44aaff']].map(([l,v,c])=>`<div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:7px;color:#475569">${l}</div><div style="font-size:10px;font-weight:700;color:${c}">${v}</div></div>`).join('');
+  // Bitmap
+  const canvas=document.getElementById('seq-map');const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+  const cols=Math.floor(W/4),rows=Math.floor(H/4);
+  const clrs={A:'#00ff88',T:'#00ccff',G:'#ffcc00',C:'#ff44aa'};
+  for(let i=0;i<Math.min(dna.length,cols*rows);i++){ctx.fillStyle=clrs[dna[i]]||'#333';ctx.fillRect((i%cols)*4,Math.floor(i/cols)*4,3,3);}
+  // Extra
+  document.getElementById('an-extra').innerHTML=[['MOLECULAR WEIGHT',(total*330).toLocaleString()+' Da','#f59e0b'],['STORAGE DENSITY','2 bits/base','#00f5ff'],['ENCODED BYTES',Math.floor(total/4).toLocaleString(),'#aa88ff'],['COMPLEMENTARY',total.toLocaleString()+' bp','#00ff88']].map(([l,v,c])=>`<div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:3px;padding:5px"><div style="font-size:7px;color:#475569">${l}</div><div style="font-size:10px;font-weight:700;color:${c}">${v}</div></div>`).join('');
+}
+// Live stream
+setInterval(()=>{const b=new Uint8Array(32);crypto.getRandomValues(b);const dna=bytesToDNA(b).slice(0,60);const el=document.getElementById('live-stream');if(!el)return;const row=document.createElement('div');row.style.cssText='display:flex;gap:2px';row.innerHTML=dna.split('').map(c=>`<span style="color:${DC[c]||'#aaa'}">${c}</span>`).join('');el.insertBefore(row,el.firstChild);while(el.children.length>8)el.removeChild(el.lastChild);Array.from(el.children).forEach((r,i)=>{r.style.opacity=1-i*0.11;});},800);
+setTimeout(()=>{document.getElementById('an-input').value='oOMCMOo DNA Vault — Immortal Synthetic 12 Strand Network';runAnalytics();},150);
+
+// ══ WALLET ══
+let wState=null,txIv=null;
+const WCOLOR={Phantom:'#ab9ff2',Solflare:'#fc7227',Backpack:'#e33e3f'};
+function fakeAddr(){const c='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';return Array.from({length:44},()=>c[Math.floor(Math.random()*c.length)]).join('');}
+async function connectWallet(name,icon,color){
+  document.querySelectorAll('.wallet-opt').forEach(b=>b.disabled=true);
+  await new Promise(r=>setTimeout(r,1300));
+  wState={name,icon,address:fakeAddr(),sol:(Math.random()*100+5).toFixed(4),tokens:Math.floor(Math.random()*50000+1000).toLocaleString()};
+  document.getElementById('w-connect').style.display='none';
+  document.getElementById('w-connected').style.display='block';
+  document.getElementById('w-icon').textContent=icon;
+  document.getElementById('w-name').textContent=name;document.getElementById('w-name').style.color=WCOLOR[name];
+  document.getElementById('w-addr').textContent=wState.address;
+  document.getElementById('w-sol').textContent=wState.sol;
+  document.getElementById('w-token').textContent=wState.tokens;
+  document.getElementById('w-integrations').innerHTML=[['IPFS Gateway','ACTIVE','#00ff88'],['Arweave Node','ACTIVE','#00ff88'],['oOMCMOo DAO','ACTIVE','#00ff88'],['oOMCMOo Music Stellar','SYNCED','#00f5ff'],['Lunar Relay Node','ACTIVE','#00ff88'],['DNA Archive Market','COMING SOON','#f59e0b']].map(([l,s,c])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #0f172a"><span style="font-size:9px;color:#94a3b8">${l}</span><span style="font-size:8px;color:${c};letter-spacing:0.08em">${s}</span></div>`).join('');
+  startLiveTx();
+}
+function disconnectWallet(){wState=null;if(txIv)clearInterval(txIv);document.getElementById('w-connected').style.display='none';document.getElementById('w-connect').style.display='block';document.querySelectorAll('.wallet-opt').forEach(b=>b.disabled=false);}
+function copyWAddr(){if(wState){navigator.clipboard.writeText(wState.address);const b=document.getElementById('copy-addr');b.textContent='COPIED!';setTimeout(()=>b.textContent='COPY ADDRESS',1500);}}
+function startLiveTx(){
+  const types=['VAULT_STORE','DNA_ENCODE','KEY_ROTATE','DAO_VOTE','TOKEN_TRANSFER'];
+  const el=document.getElementById('live-tx');
+  const add=()=>{const b=new Uint8Array(8);crypto.getRandomValues(b);const sig=Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;font-size:8px;padding:3px 0;border-bottom:1px solid #0f172a';row.innerHTML=`<span style="color:#00f5ff;font-family:'Share Tech Mono',monospace">${sig}...</span><span style="color:#aa88ff;letter-spacing:0.06em">${types[Math.floor(Math.random()*types.length)]}</span><span style="color:#475569">${new Date().toLocaleTimeString()}</span>`;el.insertBefore(row,el.firstChild);while(el.children.length>6)el.removeChild(el.lastChild);};
+  add();txIv=setInterval(add,4000+Math.random()*3000);
+}
+
+// ══ DAO ══
+const proposals=[
+  {id:'SDP-001',title:'Upgrade Vault Encryption to Kyber-1024',desc:'Upgrade all vault encryption from Falcon-512 to Kyber-1024 for enhanced post-quantum security.',vF:12847,vA:2341,status:'ACTIVE',dl:'2026-07-01',voted:null},
+  {id:'SDP-002',title:'Launch DNA Archive Marketplace',desc:'Enable peer-to-peer trading of encrypted DNA data archives via the oOMCMOo Token ecosystem on Solana.',vF:9831,vA:4102,status:'ACTIVE',dl:'2026-06-28',voted:null},
+  {id:'SDP-003',title:'Activate Lunar Relay Network Node #7',desc:'Approve budget for deployment of Lunar Relay Node #7 to reduce quantum channel latency.',vF:18291,vA:901,status:'PASSED',dl:'2026-06-10',voted:null},
+  {id:'SDP-004',title:'oOMCMOo Token Treasury Rebalance Q3',desc:'Reallocate 15% of treasury to R&D for VR/AR vault interface and DNA archive compression algorithms.',vF:7423,vA:8901,status:'FAILED',dl:'2026-06-12',voted:null},
+  {id:'SDP-005',title:'Integrate Arweave Permanent Storage Tier',desc:'Add Arweave as a permanent immutable storage layer for IPFS-pinned DNA archives.',vF:0,vA:0,status:'PENDING',dl:'2026-07-15',voted:null},
+];
+const SC={ACTIVE:'#00ff88',PASSED:'#00ccff',FAILED:'#ff4444',PENDING:'#ffaa00'};
+let daoSlot=Math.floor(Math.random()*1e8+2e8);
+setInterval(()=>{daoSlot+=Math.floor(Math.random()*3+1);const el=document.getElementById('dao-slot');if(el)el.textContent='#'+daoSlot.toLocaleString();},400);
+function renderDAO(){
+  const tV=Math.floor(Math.random()*20000+30000);
+  const tA=proposals.filter(p=>p.status==='ACTIVE').length;
+  const tP=proposals.filter(p=>p.status==='PASSED').length;
+  const tVotes=proposals.reduce((s,p)=>s+p.vF+p.vA,0);
+  document.getElementById('dao-stats').innerHTML=[['TOTAL VOTERS',tV.toLocaleString(),'#00ccff'],['ACTIVE PROPOSALS',String(tA),'#00ff88'],['PROPOSALS PASSED',String(tP),'#aa88ff'],['TOTAL VOTES CAST',tVotes.toLocaleString(),'#f59e0b']].map(([l,v,c])=>`<div style="background:rgba(0,0,0,0.4);border:1px solid #1e293b;border-radius:5px;padding:11px"><div style="font-size:7px;color:#475569;letter-spacing:0.12em">${l}</div><div style="font-size:16px;font-weight:700;color:${c};margin-top:3px">${v}</div></div>`).join('');
+  document.getElementById('proposals-list').innerHTML=proposals.map((p,i)=>{
+    const tot=p.vF+p.vA;const fPct=tot?(p.vF/tot)*100:50;const sc=SC[p.status];
+    return `<div class="pc"><div style="display:flex;align-items:start;gap:7px"><div style="flex:1"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="font-size:8px;color:#475569">${p.id}</span><span style="font-size:7px;padding:1px 5px;border-radius:2px;letter-spacing:0.1em;font-weight:700;color:${sc};border:1px solid ${sc}33;background:${sc}11">${p.status}</span></div><div style="font-size:11px;color:#e2e8f0;font-weight:700">${p.title}</div><div style="font-size:8px;color:#64748b;margin-top:3px;line-height:1.5">${p.desc}</div></div></div>
+    <div><div style="display:flex;justify-content:space-between;font-size:8px;margin-bottom:3px"><span style="color:#00ff88">FOR: ${p.vF.toLocaleString()}</span><span style="color:#ef4444">AGAINST: ${p.vA.toLocaleString()}</span></div><div class="vbar"><div class="vfill" style="width:${fPct}%"></div></div><div style="font-size:7px;color:#334155;margin-top:2px">DEADLINE: ${p.dl} &bull; ${tot.toLocaleString()} votes cast</div></div>
+    ${p.status==='ACTIVE'?p.voted?`<div style="font-size:8px;color:#64748b;padding:5px 0">VOTED: <span style="color:${p.voted==='for'?'#00ff88':'#ef4444'};font-weight:700">${p.voted.toUpperCase()}</span></div>`:`<div style="display:flex;gap:5px"><button onclick="voteDAO(${i},'for')" style="flex:1;padding:6px;font-size:8px;letter-spacing:0.1em;border:1px solid #14532d;color:#00ff88;background:none;cursor:pointer;font-family:'Share Tech Mono',monospace">VOTE FOR</button><button onclick="voteDAO(${i},'against')" style="flex:1;padding:6px;font-size:8px;letter-spacing:0.1em;border:1px solid #450a0a;color:#ef4444;background:none;cursor:pointer;font-family:'Share Tech Mono',monospace">VOTE AGAINST</button></div>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('dao-eco').innerHTML=[['oOMCMOo DAO','#00f5ff'],['oOMCMOo Music Stellar','#aa88ff'],['DNA Vault NFTs','#00ff88'],['oOMCMOo Token','#f59e0b'],['Lunar Relay Network','#ff44aa']].map(([n,c])=>`<div style="display:flex;align-items:center;gap:5px"><span style="width:5px;height:5px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="font-size:8px;color:${c}">${n}</span></div>`).join('');
+}
+function voteDAO(i,dir){const p=proposals[i];if(p.status!=='ACTIVE'||p.voted)return;if(dir==='for')p.vF++;else p.vA++;p.voted=dir;renderDAO();}
+
+// ══ AI CORE ══
+const KB={encryption:"The DNA Vault uses AES-256-GCM authenticated encryption with PBKDF2 key derivation (600,000 iterations, SHA-256). Post-quantum algorithms include Kyber-1024 (key encapsulation), Dilithium (digital signatures), Falcon-1024, and SPHINCS+-SHA256. XChaCha20-Poly1305 is available as an alternative stream cipher.",dna:"DNA encoding maps binary data to nucleotide bases: A=00, T=01, G=10, C=11. Each byte becomes 4 bases. A 1MB file becomes 4,194,304 bases. The theoretical storage density of synthetic DNA is approximately 215 petabytes per gram — the densest storage medium known to science.",wallet:"The DNA Vault integrates with Solana wallets (Phantom, Solflare, Backpack) via the oOMCMOo Token ecosystem. Vault NFTs (VDNA tokens) represent ownership of encrypted DNA archives. oOMCMOo DAO governance uses oOMCMOo tokens for voting.",ipfs:"Files are stored on IPFS after encryption. Each file gets a unique CIDv1 hash. Pinata pinning keeps files permanently accessible. Arweave provides an additional permanent immutable backup layer.",strands:"The 12-strand synthetic DNA model represents 12 cryptographic security layers: AES-256-GCM, PBKDF2, Kyber-1024, Dilithium, Falcon-1024, SPHINCS+, XChaCha20, Zero-Knowledge Proofs, Distributed Ledger, Self-Healing Data, Quantum Channel Encryption, and Post-Quantum Signatures.",lunar:"The Lunar Quantum Link is a theoretical satellite-based backup with 384,400 km latency (Earth-Moon distance). Future deployment uses quantum key distribution (QKD) for provably secure key exchange, immune to interception.",dao:"oOMCMOo DAO governs the DNA Vault Network using oOMCMOo tokens. Proposals cover encryption upgrades, node deployments, treasury allocation, and marketplace launches. Quorum requires 10,000 votes.",oomcmoo:"oOMCMOo integrates oOMCMOo Music Stellar (music NFT platform), oOMCMOo DAO, DNA Vault storage, and the oOMCMOo Token ecosystem — all on Solana blockchain."};
+function getAIResp(q){const l=q.toLowerCase();if(l.includes('encrypt')||l.includes('aes')||l.includes('kyber')||l.includes('xchacha'))return KB.encryption;if(l.includes('strand'))return KB.strands;if(l.includes('dna')||l.includes('nucleotide')||l.includes('atgc')||l.includes('encod'))return KB.dna;if(l.includes('wallet')||l.includes('solana')||l.includes('phantom')||l.includes('nft'))return KB.wallet;if(l.includes('ipfs')||l.includes('arweave')||l.includes('storage')||l.includes('file'))return KB.ipfs;if(l.includes('lunar')||l.includes('moon')||l.includes('satellite'))return KB.lunar;if(l.includes('dao')||l.includes('govern')||l.includes('vote'))return KB.dao;if(l.includes('oomcmoo')||l.includes('music')||l.includes('ecosystem'))return KB.oomcmoo;if(l.includes('hello')||l.includes('hi')||l.includes('hey'))return"Greetings. I am the AI Core of the oOMCMOo DNA Vault. I can explain encryption protocols, DNA encoding technology, DAO governance, wallet integration, and the full oOMCMOo ecosystem. How can I assist you?";return"I am the DNA Vault AI Core. Ask me about encryption, DNA storage science, the Lunar Relay Network, DAO governance, or the oOMCMOo ecosystem.";}
+let aiThink=false;
+function addMsg(role,text){const el=document.getElementById('ai-msgs');const row=document.createElement('div');row.className='mrow'+(role==='user'?' u':'');row.innerHTML=`<div class="av ${role==='ai'?'av-ai':'av-u'}">${role==='ai'?'AI':'U'}</div><div class="${role==='ai'?'msg-ai':'msg-user'}">${text}</div>`;el.appendChild(row);el.scrollTop=el.scrollHeight;}
+async function sendAI(text){
+  const q=(text||document.getElementById('ai-in').value).trim();if(!q||aiThink)return;
+  document.getElementById('ai-in').value='';addMsg('user',q);aiThink=true;
+  const el=document.getElementById('ai-msgs');
+  const tr=document.createElement('div');tr.className='mrow';tr.id='ai-think';
+  tr.innerHTML=`<div class="av av-ai">AI</div><div class="msg-ai" style="display:flex;align-items:center;gap:3px">${[0,1,2].map(i=>`<div style="width:4px;height:4px;border-radius:50%;background:#00f5ff;animation:bounce 0.8s ${i*0.15}s infinite"></div>`).join('')}</div>`;
+  el.appendChild(tr);el.scrollTop=el.scrollHeight;
+  await new Promise(r=>setTimeout(r,600+Math.random()*700));
+  tr.remove();addMsg('ai',getAIResp(q));aiThink=false;
+}
+function initAI(){
+  document.getElementById('ai-sugg').innerHTML=['How does DNA encoding work?','Explain post-quantum encryption','What is the Lunar Relay Network?','Tell me about oOMCMOo DAO','How do I use the IPFS vault?','What is XChaCha20?'].map(s=>`<button onclick="sendAI('${s}')" class="demo-btn">${s}</button>`).join('');
+  document.getElementById('ai-mods').innerHTML=[['Encryption Protocols','#00f5ff'],['DNA Storage Science','#00ff88'],['Wallet & Web3','#aa88ff'],['IPFS / Arweave','#f59e0b'],['Lunar Relay Network','#ff44aa'],['oOMCMOo DAO','#44aaff'],['oOMCMOo Ecosystem','#ffcc00']].map(([l,c])=>`<div style="display:flex;align-items:center;gap:5px"><span style="width:4px;height:4px;border-radius:50%;background:${c};flex-shrink:0"></span><span style="font-size:8px;color:${c}">${l}</span></div>`).join('');
+  setTimeout(()=>addMsg('ai','Initializing DNA Vault AI Core... System online. I am your intelligent guide to the oOMCMOo DNA Vault Network. Ask me about encryption, DNA storage, the Lunar Relay, DAO governance, or the oOMCMOo ecosystem.'),150);
+}
+
+// ══ WINAMP ══
+let playing=false,plOpen=false;
+const audio=document.getElementById('audio-el');
+audio.src='akashic-records.mp3';audio.volume=0.7;
+function fmtT(s){if(!isFinite(s))return'0:00';return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
+function togglePlay(){if(playing){audio.pause();playing=false;document.getElementById('play-btn').textContent='▶';document.getElementById('play-btn').style.textShadow='0 0 8px #00ff88';}else{audio.play().catch(()=>{});playing=true;document.getElementById('play-btn').textContent='⏸';document.getElementById('play-btn').style.textShadow='none';}}
+function stopTrack(){audio.pause();audio.currentTime=0;playing=false;document.getElementById('play-btn').textContent='▶';updateSeek();}
+function prevTrack(){audio.currentTime=0;if(playing)audio.play().catch(()=>{});}
+function nextTrack(){audio.currentTime=0;if(playing)audio.play().catch(()=>{});}
+function updateSeek(){const t=audio.currentTime,d=audio.duration||1;document.getElementById('cur-time').textContent=fmtT(t);const b=document.getElementById('seek-bar');b.value=t/d;}
+function updateDur(){document.getElementById('tot-time').textContent=fmtT(audio.duration);}
+function seekTo(v){audio.currentTime=v*(audio.duration||0);}
+function setVol(v){audio.volume=v;}
+function togglePlaylist(){plOpen=!plOpen;const p=document.getElementById('playlist-panel');const b=document.getElementById('pl-btn');p.style.display=plOpen?'block':'none';b.style.borderColor=plOpen?'#00f5ff':'#334155';b.style.color=plOpen?'#00f5ff':'#475569';b.style.background=plOpen?'rgba(0,245,255,0.08)':'none';}
+let scrollX=0;
+setInterval(()=>{scrollX=(scrollX+0.4)%280;document.getElementById('scroll-title').style.transform=`translateX(-${scrollX}px)`;},16);
+
+// ══ THREE.JS 3D VAULT ══
+(function(){
+  const canvas=document.getElementById('vault-canvas');
+  const container=document.getElementById('vault-container');
+  if(!canvas||typeof THREE==='undefined')return;
+  try{const tc=document.createElement('canvas');if(!tc.getContext('webgl2')&&!tc.getContext('webgl'))throw 0;}
+  catch{canvas.style.display='none';return;}
+
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+  renderer.setClearColor(0x020510);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(50,1,0.1,500);camera.position.set(0,2,12);
+
+  function resize(){const w=container.clientWidth,h=container.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  resize();window.addEventListener('resize',resize);
+
+  // Stars
+  const sp=new Float32Array(4000*3);for(let i=0;i<sp.length;i++)sp[i]=(Math.random()-0.5)*160;
+  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.15,transparent:true,opacity:0.55})));
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0x030303,0.1));
+  const l1=new THREE.PointLight(0x0080ff,0.5);l1.position.set(10,10,10);scene.add(l1);
+  const l2=new THREE.PointLight(0x8800ff,0.3);l2.position.set(-10,-10,-10);scene.add(l2);
+  const lb=new THREE.PointLight(0x00f5ff,3);lb.position.set(0,-4,0);scene.add(lb);
+  const lt=new THREE.PointLight(0x8800ff,2);lt.position.set(0,4,0);scene.add(lt);
+
+  // Cylinder
+  const cm=new THREE.MeshBasicMaterial({color:0x00ccff,transparent:true,opacity:0.06,side:THREE.DoubleSide});
+  scene.add(new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,6.2,64,1,true),cm));
+  const cw=new THREE.MeshBasicMaterial({color:0x00ccff,transparent:true,opacity:0.18,side:THREE.DoubleSide,wireframe:true});
+  scene.add(new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,6.2,64,1,true),cw));
+
+  // Energy rings
+  function mkRing(y,r,color){const m=new THREE.Mesh(new THREE.RingGeometry(r-0.05,r,64),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.5,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.y=y;scene.add(m);return m;}
+  const rings=[mkRing(-3.2,2.4,0x00f5ff),mkRing(-3.2,2.0,0x8800ff),mkRing(3.2,2.4,0x00f5ff)];
+
+  // Strand colors
+  const COLS=[0xff2244,0xff6600,0xffcc00,0xaaff00,0x00ff88,0x00ffcc,0x00ccff,0x0066ff,0x6600ff,0xcc00ff,0xff00aa,0xff0055];
+
+  function hPts(turns,ppt,hr,h,phase){const pts=[];const tot=turns*ppt;for(let i=0;i<=tot;i++){const t=(i/tot)*turns*Math.PI*2;const y=(i/tot)*h-h/2;pts.push(new THREE.Vector3(Math.cos(t+phase)*hr,y,Math.sin(t+phase)*hr));}return pts;}
+  function rGeo(turns,ppt,hr,h){const pts=[];const step=Math.floor(ppt/4);const tot=turns*ppt;for(let i=0;i<=tot;i+=step){const t=(i/tot)*turns*Math.PI*2;const y=(i/tot)*h-h/2;pts.push(new THREE.Vector3(Math.cos(t)*hr,y,Math.sin(t)*hr),new THREE.Vector3(Math.cos(t+Math.PI)*hr,y,Math.sin(t+Math.PI)*hr));}return new THREE.BufferGeometry().setFromPoints(pts);}
+
+  const strands=COLS.map((col,i)=>{
+    const angle=(i/12)*Math.PI*2,rr=1.6;
+    const g=new THREE.Group();g.position.set(Math.cos(angle)*rr,0,Math.sin(angle)*rr);
+    const mat=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:1.2,roughness:0.1,metalness:0.6});
+    const c1=new THREE.CatmullRomCurve3(hPts(4,40,0.28,5.5,0));
+    const c2=new THREE.CatmullRomCurve3(hPts(4,40,0.28,5.5,Math.PI));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(c1,180,0.018,7,false),mat));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(c2,180,0.018,7,false),mat));
+    g.add(new THREE.LineSegments(rGeo(4,40,0.28,5.5),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.5})));
+    scene.add(g);return{g,speed:0.18+i*0.008,phase:(i/12)*Math.PI*2};
+  });
+
+  // Nucleoids
+  const ng=new THREE.Group();
+  for(let i=0;i<60;i++){const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=0.9+Math.random()*0.8;const m=new THREE.Mesh(new THREE.SphereGeometry(0.05+(i%5)*0.01,8,8),new THREE.MeshStandardMaterial({color:COLS[i%COLS.length],emissive:COLS[i%COLS.length],emissiveIntensity:1.5}));m.position.set(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph)*3,r*Math.sin(ph)*Math.sin(th));ng.add(m);}
+  scene.add(ng);
+
+  // Orbit
+  let drag=false,px=0,py=0,rotX=0.15,rotY=0,dist=12,autoRot=true;
+  const MIN_D=4,MAX_D=35;
+  canvas.addEventListener('mousedown',e=>{drag=true;px=e.clientX;py=e.clientY;autoRot=false;});
+  canvas.addEventListener('mousemove',e=>{if(!drag)return;rotY+=(e.clientX-px)*0.005;rotX+=(e.clientY-py)*0.003;rotX=Math.max(-1.2,Math.min(1.2,rotX));px=e.clientX;py=e.clientY;});
+  canvas.addEventListener('mouseup',()=>drag=false);
+  canvas.addEventListener('wheel',e=>{dist=Math.max(MIN_D,Math.min(MAX_D,dist+e.deltaY*0.01));},{passive:true});
+
+  // Touch: single-finger drag to rotate, two-finger pinch to zoom
+  let pinchStartDist=0,pinchStartCamDist=0;
+  function touchDist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+  canvas.addEventListener('touchstart',e=>{
+    autoRot=false;
+    if(e.touches.length===2){pinchStartDist=touchDist(e.touches);pinchStartCamDist=dist;}
+    else{px=e.touches[0].clientX;py=e.touches[0].clientY;}
+  },{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(e.touches.length===2){
+      const d=touchDist(e.touches);
+      const scale=pinchStartDist/d;
+      dist=Math.max(MIN_D,Math.min(MAX_D,pinchStartCamDist*scale));
+    } else if(e.touches.length===1){
+      rotY+=(e.touches[0].clientX-px)*0.005;
+      rotX+=(e.touches[0].clientY-py)*0.003;
+      rotX=Math.max(-1.2,Math.min(1.2,rotX));
+      px=e.touches[0].clientX;py=e.touches[0].clientY;
+    }
+    e.preventDefault();
+  },{passive:false});
+
+  // On-screen zoom buttons (fallback for awkward pinch gestures)
+  document.getElementById('vz-in')?.addEventListener('click',()=>{autoRot=false;dist=Math.max(MIN_D,dist-1.5);});
+  document.getElementById('vz-out')?.addEventListener('click',()=>{autoRot=false;dist=Math.min(MAX_D,dist+1.5);});
+
+  let t=0;
+  function animate(){requestAnimationFrame(animate);t+=0.016;
+    if(autoRot)rotY+=0.004;
+    strands.forEach(({g,speed,phase})=>g.rotation.y=t*speed+phase);
+    ng.rotation.y=t*0.15;
+    rings.forEach((r,i)=>{const s=1+Math.sin(t*(1.5+i*0.3))*0.08;r.scale.set(s,1,s);});
+    camera.position.x=Math.sin(rotY)*Math.cos(rotX)*dist;
+    camera.position.y=Math.sin(rotX)*dist+2;
+    camera.position.z=Math.cos(rotY)*Math.cos(rotX)*dist;
+    camera.lookAt(0,0,0);renderer.render(scene,camera);}
+  animate();
+})();
+
+// ══ INIT ══
+loadVaultDB().then(e=>{vaultEntries=e.sort((a,b)=>b.timestamp-a.timestamp);renderVault();});
+renderDAO();
+initAI();
+updatePinataIndicator();
+</script>
+</body>
+</html>
