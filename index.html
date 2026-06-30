@@ -470,16 +470,10 @@ font-family:'Share Tech Mono',monospace;transition:all 0.2s;color:#e2e8f0}
     <span style="font-size:8px;color:#00f5ff;letter-spacing:0.2em;font-family:'Orbitron',sans-serif">HOLOGRAPHIC PLAYLIST</span>
     <button onclick="togglePlaylist()" style="color:#475569;background:none;border:none;cursor:pointer;font-size:11px">✕</button>
   </div>
-  <div style="padding:5px 0;max-height:180px;overflow-y:auto">
-    <div style="display:flex;align-items:center;gap:9px;padding:7px 12px;background:rgba(0,245,255,0.05);border-left:2px solid #00f5ff;cursor:pointer" onclick="togglePlaylist()">
-      <span style="font-size:7px;color:#475569;width:14px">01</span>
-      <div style="flex:1"><div style="font-size:10px;color:#a5f3fc;font-family:'Share Tech Mono',monospace">AKASHIC RECORDS</div><div style="font-size:7px;color:#475569">oOMCMOo</div></div>
-      <div style="display:flex;gap:1px;align-items:flex-end;height:10px">
-        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0s infinite;height:40%"></div>
-        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.1s infinite;height:70%"></div>
-        <div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.2s infinite;height:55%"></div>
-      </div>
-    </div>
+  <div id="playlist-items" style="padding:5px 0;max-height:200px;overflow-y:auto"></div>
+  <div style="padding:7px 12px;border-top:1px solid rgba(0,245,255,0.08)">
+    <input type="file" id="track-file-input" accept="audio/*" multiple style="display:none" onchange="addLocalTrack(this)">
+    <button onclick="document.getElementById('track-file-input').click()" style="width:100%;padding:6px;font-size:9px;border:1px dashed rgba(0,245,255,0.3);color:#00f5ff;background:none;cursor:pointer;font-family:'Share Tech Mono',monospace;letter-spacing:0.08em;border-radius:2px">+ ADD TRACK (this device)</button>
   </div>
   <div style="padding:5px 12px;border-top:1px solid rgba(0,245,255,0.08);font-size:7px;color:#334155">1 TRACK &bull; oOMCMOo NETWORK</div>
 </div>
@@ -989,21 +983,89 @@ function initAI(){
 }
 
 // ══ WINAMP ══
-let playing=false,plOpen=false;
+// To permanently add a track: upload the mp3 to the same GitHub folder as index.html,
+// then add a line below: {title:'TRACK NAME', artist:'oOMCMOo', src:'filename.mp3'}
+const PLAYLIST=[
+  {title:'AKASHIC RECORDS',artist:'oOMCMOo',src:'oOMCMOo - AKASHIC RECORDS.mp3'},
+   {title:'Demon Slayer (Instrumental)',artist:'oOMCMOo',src:'oOMCMOo - Demon Slayer (Instrumental).mp3'},
+];
+let curTrack=0,playing=false,plOpen=false;
 const audio=document.getElementById('audio-el');
-audio.src='akashic-records.mp3';audio.volume=0.7;
+audio.volume=0.7;
+
+function loadTrack(i,autoplay){
+  if(i<0||i>=PLAYLIST.length)return;
+  curTrack=i;
+  const t=PLAYLIST[i];
+  audio.src=t.src;
+  document.getElementById('scroll-title').parentElement.dataset.title=`${t.artist} - ${t.title}`;
+  renderPlaylist();
+  if(autoplay){audio.play().then(()=>{playing=true;updatePlayBtn();}).catch(()=>{playing=false;updatePlayBtn();});}
+}
+function updatePlayBtn(){
+  const b=document.getElementById('play-btn');
+  b.textContent=playing?'⏸':'▶';
+  b.style.textShadow=playing?'none':'0 0 8px #00ff88';
+}
 function fmtT(s){if(!isFinite(s))return'0:00';return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
-function togglePlay(){if(playing){audio.pause();playing=false;document.getElementById('play-btn').textContent='▶';document.getElementById('play-btn').style.textShadow='0 0 8px #00ff88';}else{audio.play().catch(()=>{});playing=true;document.getElementById('play-btn').textContent='⏸';document.getElementById('play-btn').style.textShadow='none';}}
-function stopTrack(){audio.pause();audio.currentTime=0;playing=false;document.getElementById('play-btn').textContent='▶';updateSeek();}
-function prevTrack(){audio.currentTime=0;if(playing)audio.play().catch(()=>{});}
-function nextTrack(){audio.currentTime=0;if(playing)audio.play().catch(()=>{});}
-function updateSeek(){const t=audio.currentTime,d=audio.duration||1;document.getElementById('cur-time').textContent=fmtT(t);const b=document.getElementById('seek-bar');b.value=t/d;}
+function togglePlay(){
+  if(!audio.src){loadTrack(0,true);return;}
+  if(playing){audio.pause();playing=false;}
+  else{audio.play().then(()=>playing=true).catch(()=>playing=false);}
+  updatePlayBtn();
+}
+function stopTrack(){audio.pause();audio.currentTime=0;playing=false;updatePlayBtn();updateSeek();}
+function prevTrack(){loadTrack((curTrack-1+PLAYLIST.length)%PLAYLIST.length,playing||true);}
+function nextTrack(){loadTrack((curTrack+1)%PLAYLIST.length,playing||true);}
+function updateSeek(){const t=audio.currentTime,d=audio.duration||1;document.getElementById('cur-time').textContent=fmtT(t);document.getElementById('seek-bar').value=t/d;}
 function updateDur(){document.getElementById('tot-time').textContent=fmtT(audio.duration);}
 function seekTo(v){audio.currentTime=v*(audio.duration||0);}
 function setVol(v){audio.volume=v;}
 function togglePlaylist(){plOpen=!plOpen;const p=document.getElementById('playlist-panel');const b=document.getElementById('pl-btn');p.style.display=plOpen?'block':'none';b.style.borderColor=plOpen?'#00f5ff':'#334155';b.style.color=plOpen?'#00f5ff':'#475569';b.style.background=plOpen?'rgba(0,245,255,0.08)':'none';}
+function renderPlaylist(){
+  const el=document.getElementById('playlist-items');
+  el.innerHTML=PLAYLIST.map((t,i)=>`
+    <div onclick="loadTrack(${i},true)" style="display:flex;align-items:center;gap:9px;padding:7px 12px;cursor:pointer;${i===curTrack?'background:rgba(0,245,255,0.05);border-left:2px solid #00f5ff':'border-left:2px solid transparent'}">
+      <span style="font-size:7px;color:#475569;width:14px">${String(i+1).padStart(2,'0')}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:${i===curTrack?'#a5f3fc':'#cbd5e1'};font-family:'Share Tech Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
+        <div style="font-size:7px;color:#475569">${t.artist}</div>
+      </div>
+      ${i===curTrack&&playing?'<div style="display:flex;gap:1px;align-items:flex-end;height:10px"><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0s infinite;height:40%"></div><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.1s infinite;height:70%"></div><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.2s infinite;height:55%"></div></div>':''}
+      <button onclick="event.stopPropagation();removeTrack(${i})" style="background:none;border:none;color:#334155;cursor:pointer;font-size:10px;padding:2px 4px" title="Remove">✕</button>
+    </div>`).join('');
+  document.querySelector('#playlist-panel > div:last-child').textContent=`${PLAYLIST.length} TRACK${PLAYLIST.length!==1?'S':''} \u2022 oOMCMOo NETWORK`;
+}
+function addLocalTrack(input){
+  const files=Array.from(input.files||[]);
+  if(!files.length)return;
+  files.forEach(f=>{
+    const url=URL.createObjectURL(f);
+    const name=f.name.replace(/\.[^.]+$/,'');
+    PLAYLIST.push({title:name.toUpperCase(),artist:'LOCAL (this session only)',src:url});
+  });
+  renderPlaylist();
+  input.value='';
+}
+function removeTrack(i){
+  if(PLAYLIST.length<=1)return;
+  const t=PLAYLIST[i];
+  if(t.src.startsWith('blob:'))URL.revokeObjectURL(t.src);
+  PLAYLIST.splice(i,1);
+  if(curTrack>=PLAYLIST.length)curTrack=PLAYLIST.length-1;
+  if(i===curTrack)loadTrack(curTrack,playing);
+  else renderPlaylist();
+}
 let scrollX=0;
-setInterval(()=>{scrollX=(scrollX+0.4)%280;document.getElementById('scroll-title').style.transform=`translateX(-${scrollX}px)`;},16);
+setInterval(()=>{
+  const wrap=document.getElementById('scroll-title').parentElement;
+  const title=wrap.dataset.title||'oOMCMOo - SELECT A TRACK';
+  scrollX=(scrollX+0.4)%(title.length*7+200);
+  document.getElementById('scroll-title').textContent=title+'          ';
+  document.getElementById('scroll-title').style.transform=`translateX(-${scrollX}px)`;
+},16);
+loadTrack(0,false);
+renderPlaylist();
 
 // ══ THREE.JS 3D VAULT ══
 (function(){
@@ -1115,9 +1177,3 @@ setInterval(()=>{scrollX=(scrollX+0.4)%280;document.getElementById('scroll-title
 
 // ══ INIT ══
 loadVaultDB().then(e=>{vaultEntries=e.sort((a,b)=>b.timestamp-a.timestamp);renderVault();});
-renderDAO();
-initAI();
-updatePinataIndicator();
-</script>
-</body>
-</html>
