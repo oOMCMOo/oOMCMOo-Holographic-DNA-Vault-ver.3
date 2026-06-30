@@ -627,8 +627,8 @@ function loadPQC(onProgress){
   if(!pqcLibPromise){
     onProgress?.('Loading post-quantum cipher library...');
     pqcLibPromise=Promise.all([
-      import('https://esm.sh/@noble/post-quantum/ml-kem.js'),
-      import('https://esm.sh/@noble/post-quantum/ml-dsa.js')
+      import('https://esm.sh/@noble/post-quantum@0.6.1/ml-kem.js'),
+      import('https://esm.sh/@noble/post-quantum@0.6.1/ml-dsa.js')
     ]).then(([kemMod,dsaMod])=>({ml_kem1024:kemMod.ml_kem1024,ml_dsa65:dsaMod.ml_dsa65}))
       .catch(e=>{pqcLibPromise=null;throw new Error('Could not load PQC library — check internet connection (only needed once).');});
   }
@@ -666,7 +666,7 @@ async function encryptHybridPQC(plainBytes,passphrase,onProgress){
   const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aesKey,plainBytes));
   onProgress?.('Signing with ML-DSA-65 (zero-trust integrity layer)...');
   const dsaKeys=ml_dsa65.keygen(dsaSeed);
-  const sig=ml_dsa65.sign(dsaKeys.secretKey,ct);
+  const sig=ml_dsa65.sign(ct,dsaKeys.secretKey);
   const blob=new Uint8Array(16+12+kemCT.length+sig.length+ct.length);
   let o=0;
   blob.set(salt,o);o+=16;
@@ -693,7 +693,7 @@ async function decryptHybridPQC(blob,passphrase,onProgress){
   const kemShared=ml_kem1024.decapsulate(kemCT,kemKeys.secretKey);
   const dsaKeys=ml_dsa65.keygen(dsaSeed);
   onProgress?.('ZERO-TRUST CHECK: verifying ML-DSA-65 signature before decrypting...');
-  const valid=ml_dsa65.verify(dsaKeys.publicKey,ct,sig);
+  const valid=ml_dsa65.verify(sig,ct,dsaKeys.publicKey);
   if(!valid)throw new Error('Signature verification failed — wrong passphrase or tampered/corrupted data. Decryption blocked.');
   onProgress?.('Signature verified. AES-256-GCM decrypting...');
   const aesKey=await mixToAesKey(classicalKey,kemShared,'decrypt');
@@ -762,9 +762,16 @@ function pinataGatewayLink(cid){
 }
 
 // ══ INDEXEDDB ══
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('oOMCMOo_DNA_Vault',1);r.onupgradeneeded=()=>r.result.createObjectStore('vault',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-async function loadVaultDB(){try{const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('vault','readonly');const r=tx.objectStore('vault').getAll();r.onsuccess=()=>res(r.result??[]);r.onerror=()=>rej(r.error);});}catch{return[];}}
-async function addEntryDB(e){try{const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('vault','readwrite');tx.objectStore('vault').put(e);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}catch{}}
+let vaultDBError=null;
+function openDB(){return new Promise((res,rej)=>{
+  if(typeof indexedDB==='undefined'){rej(new Error('IndexedDB unavailable in this context (try opening over http/https rather than a local file, or use a different browser)'));return;}
+  const r=indexedDB.open('oOMCMOo_DNA_Vault',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('vault',{keyPath:'id'});
+  r.onsuccess=()=>res(r.result);
+  r.onerror=()=>rej(r.error);
+});}
+async function loadVaultDB(){try{const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('vault','readonly');const r=tx.objectStore('vault').getAll();r.onsuccess=()=>res(r.result??[]);r.onerror=()=>rej(r.error);});}catch(e){vaultDBError=e.message||String(e);return[];}}
+async function addEntryDB(e){try{const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('vault','readwrite');tx.objectStore('vault').put(e);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}catch(err){vaultDBError=err.message||String(err);throw err;}}
 async function delEntryDB(id){try{const db=await openDB();await new Promise((res,rej)=>{const tx=db.transaction('vault','readwrite');tx.objectStore('vault').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}catch{}}
 
 // ══ SYNTHESIZER ══
@@ -835,7 +842,12 @@ function renderVault(){
   const list=document.getElementById('vault-list');const empty=document.getElementById('vault-empty');
   document.getElementById('vault-count').textContent=`ENCRYPTED VAULT — ${vaultEntries.length} FILE${vaultEntries.length!==1?'S':''}`;
   document.getElementById('vault-total').textContent=vaultEntries.length?fmtSz(vaultEntries.reduce((s,e)=>s+e.size,0))+' total':'';
-  if(vaultEntries.length===0){empty.style.display='block';return;}
+  if(vaultEntries.length===0){
+    empty.innerHTML=vaultDBError
+      ? `<div style="color:#ef4444;font-size:9px;line-height:1.6">⚠ VAULT STORAGE ERROR<br>${vaultDBError}</div>`
+      : 'No files vaulted yet.<br>Select a file and enter a passphrase to begin.';
+    empty.style.display='block';return;
+  }
   empty.style.display='none';list.innerHTML='';
   vaultEntries.forEach(e=>{
     const canPlay=e.mimeType.startsWith('audio/')||e.mimeType.startsWith('video/')||e.mimeType.startsWith('image/')||e.mimeType==='application/pdf'||e.mimeType==='text/html';
