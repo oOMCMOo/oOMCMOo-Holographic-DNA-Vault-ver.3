@@ -437,6 +437,7 @@ font-family:'Share Tech Mono',monospace;transition:all 0.2s;color:#e2e8f0}
 </div><!-- /maincontent -->
 
 <!-- WINAMP -->
+<div id="player-status" style="position:fixed;bottom:52px;left:0;right:0;z-index:198;background:rgba(0,0,0,0.9);font-size:9px;padding:4px 12px;text-align:center;color:#475569;display:none;font-family:'Share Tech Mono',monospace;letter-spacing:0.04em"></div>
 <div id="winamp">
   <audio id="audio-el" onended="nextTrack()" ontimeupdate="updateSeek()" onloadedmetadata="updateDur()"></audio>
   <div style="padding:0 10px;border-right:1px solid rgba(0,245,255,0.12);height:100%;display:flex;align-items:center;flex-shrink:0">
@@ -475,7 +476,7 @@ font-family:'Share Tech Mono',monospace;transition:all 0.2s;color:#e2e8f0}
     <input type="file" id="track-file-input" accept="audio/*" multiple style="display:none" onchange="addLocalTrack(this)">
     <button onclick="document.getElementById('track-file-input').click()" style="width:100%;padding:6px;font-size:9px;border:1px dashed rgba(0,245,255,0.3);color:#00f5ff;background:none;cursor:pointer;font-family:'Share Tech Mono',monospace;letter-spacing:0.08em;border-radius:2px">+ ADD TRACK (this device)</button>
   </div>
-  <div style="padding:5px 12px;border-top:1px solid rgba(0,245,255,0.08);font-size:7px;color:#334155">1 TRACK &bull; oOMCMOo NETWORK</div>
+  <div style="padding:5px 12px;border-top:1px solid rgba(0,245,255,0.08);font-size:7px;color:#334155" id="playlist-footer">1 TRACK &bull; oOMCMOo NETWORK</div>
 </div>
 
 <!-- Media modal -->
@@ -983,24 +984,68 @@ function initAI(){
 }
 
 // ══ WINAMP ══
-// To permanently add a track: upload the mp3 to the same GitHub folder as index.html,
-// then add a line below: {title:'TRACK NAME', artist:'oOMCMOo', src:'filename.mp3'}
+// Tracks are auto-discovered from your GitHub Pages repo (any .mp3 in the same folder
+// as index.html appears automatically — just upload the file, no code edit needed).
+// Fallback list used if discovery fails (offline, not on GitHub Pages, rate-limited, etc).
 const PLAYLIST=[
-  {title:'AKASHIC RECORDS',artist:'oOMCMOo',src:'akashic-records.mp3'},
+  {title:'AKASHIC RECORDS',artist:'oOMCMOo',src:'oOMCMOo - AKASHIC RECORDS.mp3'},
 ];
-let curTrack=0,playing=false,plOpen=false;
+let curTrack=0,playing=false,plOpen=false,playerStatus='';
 const audio=document.getElementById('audio-el');
 audio.volume=0.7;
+
+function setPlayerStatus(msg,isError){
+  playerStatus=msg;
+  const el=document.getElementById('player-status');
+  if(!el)return;
+  if(!msg){el.style.display='none';return;}
+  el.textContent=msg;
+  el.style.color=isError?'#ef4444':'#94a3b8';
+  el.style.display='block';
+  if(!isError)setTimeout(()=>{if(el.textContent===msg)el.style.display='none';},5000);
+}
+
+async function discoverGithubTracks(){
+  try{
+    const host=location.hostname;
+    if(!host.endsWith('.github.io')){setPlayerStatus('Auto-discovery only works on a deployed github.io URL — using built-in playlist.',false);return null;}
+    const segs=location.pathname.split('/').filter(Boolean);
+    const user=host.split('.')[0];
+    const repo=segs[0];
+    if(!repo){setPlayerStatus('Could not determine repo name from URL — using built-in playlist.',false);return null;}
+    const apiUrl=`https://api.github.com/repos/${user}/${repo}/contents/`;
+    const res=await fetch(apiUrl);
+    if(!res.ok){
+      if(res.status===403)setPlayerStatus('GitHub API rate-limited (60 req/hr) — using built-in playlist for now.',true);
+      else setPlayerStatus(`GitHub API error (${res.status}) — using built-in playlist.`,true);
+      return null;
+    }
+    const files=await res.json();
+    if(!Array.isArray(files))return null;
+    const mp3s=files.filter(f=>f.type==='file'&&/\.mp3$/i.test(f.name));
+    if(mp3s.length===0){setPlayerStatus('No .mp3 files found in repo root.',false);return null;}
+    return mp3s.map(f=>({title:f.name.replace(/\.mp3$/i,'').replace(/[-_]/g,' ').toUpperCase(),artist:'oOMCMOo',src:f.name}));
+  }catch(e){
+    setPlayerStatus('Track auto-discovery failed (offline?) — using built-in playlist.',true);
+    return null;
+  }
+}
 
 function loadTrack(i,autoplay){
   if(i<0||i>=PLAYLIST.length)return;
   curTrack=i;
   const t=PLAYLIST[i];
-  audio.src=t.src;
+  setPlayerStatus('');
+  audio.src=encodeURI(t.src);
   document.getElementById('scroll-title').parentElement.dataset.title=`${t.artist} - ${t.title}`;
   renderPlaylist();
-  if(autoplay){audio.play().then(()=>{playing=true;updatePlayBtn();}).catch(()=>{playing=false;updatePlayBtn();});}
+  if(autoplay){audio.play().then(()=>{playing=true;updatePlayBtn();}).catch(err=>{playing=false;updatePlayBtn();setPlayerStatus('Tap ▶ to start playback (browser blocked autoplay).',false);});}
 }
+audio.addEventListener('error',()=>{
+  const t=PLAYLIST[curTrack];
+  setPlayerStatus(`Could not load "${t?.src||'track'}" — check the filename matches exactly (case-sensitive) what's uploaded to GitHub.`,true);
+  playing=false;updatePlayBtn();
+});
 function updatePlayBtn(){
   const b=document.getElementById('play-btn');
   b.textContent=playing?'⏸':'▶';
@@ -1009,13 +1054,12 @@ function updatePlayBtn(){
 function fmtT(s){if(!isFinite(s))return'0:00';return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;}
 function togglePlay(){
   if(!audio.src){loadTrack(0,true);return;}
-  if(playing){audio.pause();playing=false;}
-  else{audio.play().then(()=>playing=true).catch(()=>playing=false);}
-  updatePlayBtn();
+  if(playing){audio.pause();playing=false;updatePlayBtn();}
+  else{audio.play().then(()=>{playing=true;updatePlayBtn();}).catch(()=>{playing=false;updatePlayBtn();setPlayerStatus('Playback failed — tap play again or check the file.',true);});}
 }
 function stopTrack(){audio.pause();audio.currentTime=0;playing=false;updatePlayBtn();updateSeek();}
-function prevTrack(){loadTrack((curTrack-1+PLAYLIST.length)%PLAYLIST.length,playing||true);}
-function nextTrack(){loadTrack((curTrack+1)%PLAYLIST.length,playing||true);}
+function prevTrack(){loadTrack((curTrack-1+PLAYLIST.length)%PLAYLIST.length,true);}
+function nextTrack(){loadTrack((curTrack+1)%PLAYLIST.length,true);}
 function updateSeek(){const t=audio.currentTime,d=audio.duration||1;document.getElementById('cur-time').textContent=fmtT(t);document.getElementById('seek-bar').value=t/d;}
 function updateDur(){document.getElementById('tot-time').textContent=fmtT(audio.duration);}
 function seekTo(v){audio.currentTime=v*(audio.duration||0);}
@@ -1023,6 +1067,7 @@ function setVol(v){audio.volume=v;}
 function togglePlaylist(){plOpen=!plOpen;const p=document.getElementById('playlist-panel');const b=document.getElementById('pl-btn');p.style.display=plOpen?'block':'none';b.style.borderColor=plOpen?'#00f5ff':'#334155';b.style.color=plOpen?'#00f5ff':'#475569';b.style.background=plOpen?'rgba(0,245,255,0.08)':'none';}
 function renderPlaylist(){
   const el=document.getElementById('playlist-items');
+  if(!el)return;
   el.innerHTML=PLAYLIST.map((t,i)=>`
     <div onclick="loadTrack(${i},true)" style="display:flex;align-items:center;gap:9px;padding:7px 12px;cursor:pointer;${i===curTrack?'background:rgba(0,245,255,0.05);border-left:2px solid #00f5ff':'border-left:2px solid transparent'}">
       <span style="font-size:7px;color:#475569;width:14px">${String(i+1).padStart(2,'0')}</span>
@@ -1033,7 +1078,8 @@ function renderPlaylist(){
       ${i===curTrack&&playing?'<div style="display:flex;gap:1px;align-items:flex-end;height:10px"><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0s infinite;height:40%"></div><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.1s infinite;height:70%"></div><div style="width:2px;background:#00f5ff;animation:bounce 0.8s 0.2s infinite;height:55%"></div></div>':''}
       <button onclick="event.stopPropagation();removeTrack(${i})" style="background:none;border:none;color:#334155;cursor:pointer;font-size:10px;padding:2px 4px" title="Remove">✕</button>
     </div>`).join('');
-  document.querySelector('#playlist-panel > div:last-child').textContent=`${PLAYLIST.length} TRACK${PLAYLIST.length!==1?'S':''} \u2022 oOMCMOo NETWORK`;
+  const footer=document.getElementById('playlist-footer');
+  if(footer)footer.textContent=`${PLAYLIST.length} TRACK${PLAYLIST.length!==1?'S':''} \u2022 oOMCMOo NETWORK`;
 }
 function addLocalTrack(input){
   const files=Array.from(input.files||[]);
@@ -1057,7 +1103,8 @@ function removeTrack(i){
 }
 let scrollX=0;
 setInterval(()=>{
-  const wrap=document.getElementById('scroll-title').parentElement;
+  const wrap=document.getElementById('scroll-title')?.parentElement;
+  if(!wrap)return;
   const title=wrap.dataset.title||'oOMCMOo - SELECT A TRACK';
   scrollX=(scrollX+0.4)%(title.length*7+200);
   document.getElementById('scroll-title').textContent=title+'          ';
@@ -1065,6 +1112,15 @@ setInterval(()=>{
 },16);
 loadTrack(0,false);
 renderPlaylist();
+discoverGithubTracks().then(discovered=>{
+  if(discovered&&discovered.length){
+    PLAYLIST.length=0;
+    discovered.forEach(t=>PLAYLIST.push(t));
+    setPlayerStatus(`Auto-loaded ${PLAYLIST.length} track${PLAYLIST.length!==1?'s':''} from GitHub.`,false);
+    loadTrack(0,false);
+  }
+});
+
 
 // ══ THREE.JS 3D VAULT ══
 (function(){
@@ -1119,60 +1175,4 @@ renderPlaylist();
     g.add(new THREE.Mesh(new THREE.TubeGeometry(c1,180,0.018,7,false),mat));
     g.add(new THREE.Mesh(new THREE.TubeGeometry(c2,180,0.018,7,false),mat));
     g.add(new THREE.LineSegments(rGeo(4,40,0.28,5.5),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.5})));
-    scene.add(g);return{g,speed:0.18+i*0.008,phase:(i/12)*Math.PI*2};
-  });
-
-  // Nucleoids
-  const ng=new THREE.Group();
-  for(let i=0;i<60;i++){const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=0.9+Math.random()*0.8;const m=new THREE.Mesh(new THREE.SphereGeometry(0.05+(i%5)*0.01,8,8),new THREE.MeshStandardMaterial({color:COLS[i%COLS.length],emissive:COLS[i%COLS.length],emissiveIntensity:1.5}));m.position.set(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph)*3,r*Math.sin(ph)*Math.sin(th));ng.add(m);}
-  scene.add(ng);
-
-  // Orbit
-  let drag=false,px=0,py=0,rotX=0.15,rotY=0,dist=12,autoRot=true;
-  const MIN_D=4,MAX_D=35;
-  canvas.addEventListener('mousedown',e=>{drag=true;px=e.clientX;py=e.clientY;autoRot=false;});
-  canvas.addEventListener('mousemove',e=>{if(!drag)return;rotY+=(e.clientX-px)*0.005;rotX+=(e.clientY-py)*0.003;rotX=Math.max(-1.2,Math.min(1.2,rotX));px=e.clientX;py=e.clientY;});
-  canvas.addEventListener('mouseup',()=>drag=false);
-  canvas.addEventListener('wheel',e=>{dist=Math.max(MIN_D,Math.min(MAX_D,dist+e.deltaY*0.01));},{passive:true});
-
-  // Touch: single-finger drag to rotate, two-finger pinch to zoom
-  let pinchStartDist=0,pinchStartCamDist=0;
-  function touchDist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
-  canvas.addEventListener('touchstart',e=>{
-    autoRot=false;
-    if(e.touches.length===2){pinchStartDist=touchDist(e.touches);pinchStartCamDist=dist;}
-    else{px=e.touches[0].clientX;py=e.touches[0].clientY;}
-  },{passive:true});
-  canvas.addEventListener('touchmove',e=>{
-    if(e.touches.length===2){
-      const d=touchDist(e.touches);
-      const scale=pinchStartDist/d;
-      dist=Math.max(MIN_D,Math.min(MAX_D,pinchStartCamDist*scale));
-    } else if(e.touches.length===1){
-      rotY+=(e.touches[0].clientX-px)*0.005;
-      rotX+=(e.touches[0].clientY-py)*0.003;
-      rotX=Math.max(-1.2,Math.min(1.2,rotX));
-      px=e.touches[0].clientX;py=e.touches[0].clientY;
-    }
-    e.preventDefault();
-  },{passive:false});
-
-  // On-screen zoom buttons (fallback for awkward pinch gestures)
-  document.getElementById('vz-in')?.addEventListener('click',()=>{autoRot=false;dist=Math.max(MIN_D,dist-1.5);});
-  document.getElementById('vz-out')?.addEventListener('click',()=>{autoRot=false;dist=Math.min(MAX_D,dist+1.5);});
-
-  let t=0;
-  function animate(){requestAnimationFrame(animate);t+=0.016;
-    if(autoRot)rotY+=0.004;
-    strands.forEach(({g,speed,phase})=>g.rotation.y=t*speed+phase);
-    ng.rotation.y=t*0.15;
-    rings.forEach((r,i)=>{const s=1+Math.sin(t*(1.5+i*0.3))*0.08;r.scale.set(s,1,s);});
-    camera.position.x=Math.sin(rotY)*Math.cos(rotX)*dist;
-    camera.position.y=Math.sin(rotX)*dist+2;
-    camera.position.z=Math.cos(rotY)*Math.cos(rotX)*dist;
-    camera.lookAt(0,0,0);renderer.render(scene,camera);}
-  animate();
-})();
-
-// ══ INIT ══
-loadVaultDB().then(e=>{vaultEntries=e.sort((a,b)=>b.timestamp-a.timestamp);renderVault();});
+    scene.add(g);return{g,speed:0.18+i*0.008,phase:(i/12)*Ma
